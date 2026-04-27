@@ -218,9 +218,13 @@ def _compute_single_attribute_metrics(
 
 def detect_proxies(df: pd.DataFrame, sensitive_cols: list, target_col: str, model=None) -> list:
     """
-    Detect proxy variables using correlation analysis and SHAP feature importance.
+    Detect proxy variables using correlation analysis and optional SHAP feature importance.
     Proxy variables are features that are highly correlated with sensitive attributes
     and can lead to indirect discrimination.
+    
+    Uses two detection methods:
+    1. Correlation: Direct correlation between features and sensitive attributes
+    2. SHAP (if model provided): Feature importance that varies significantly by sensitive group
     """
     proxy_flags = []
     
@@ -235,7 +239,7 @@ def detect_proxies(df: pd.DataFrame, sensitive_cols: list, target_col: str, mode
         if len(feature_cols) == 0:
             return proxy_flags
         
-        # Calculate correlations with each sensitive attribute
+        # METHOD 1: Correlation-based proxy detection
         for sensitive_attr in sensitive_cols:
             if sensitive_attr not in df.columns:
                 continue
@@ -262,11 +266,94 @@ def detect_proxies(df: pd.DataFrame, sensitive_cols: list, target_col: str, mode
                         "feature": feature,
                         "sensitive_attribute": sensitive_attr,
                         "correlation": round(corr, 3),
+                        "detection_method": "correlation",
                         "risk_level": "HIGH" if corr > 0.7 else "MEDIUM"
                     })
         
-        # Sort by correlation strength
-        proxy_flags = sorted(proxy_flags, key=lambda x: x['correlation'], reverse=True)
+        # METHOD 2: SHAP-based proxy detection (if model provided)
+        if model is not None:
+            try:
+                # Select numeric features for model
+                X = df[feature_cols].fillna(df[feature_cols].mean())
+                
+                # Only explain if dataset isn't too large (SHAP can be slow)
+                if len(X) < 500:
+                    # Create SHAP explainer
+                    explainer = shap.TreeExplainer(model)
+                    shap_values = explainer.shap_values(X)
+                    
+                    # Handle both single output and multiple outputs
+                    if isinstance(shap_values, list):
+                        shap_vals = np.abs(shap_values[1])  # Class 1 for binary
+                    else:
+                        shap_vals = np.abs(shap_values)
+                    
+                    # Average absolute SHAP values per feature
+                    feature_shap_importance = shap_vals.mean(axis=0)
+                    
+                    # For each sensitive attribute, check if feature importance varies
+                    for sensitive_attr in sensitive_cols:
+                        if sensitive_attr not in df.columns:
+                            continue
+                        
+                        # Group by sensitive attribute
+                        groups = df[sensitive_attr].unique()
+                        if len(groups) < 2:
+                            continue
+                        
+                        group_importances = {}
+                        for group in groups:
+                            group_mask = df[sensitive_attr] == group
+                            if group_mask.sum() > 0:
+                                group_shap = shap_vals[group_mask.values]
+                                group_importances[group] = group_shap.mean(axis=0)
+                        
+                        # Find features with high differential importance
+                        if len(group_importances) >= 2:
+                            importances_array = np.array(list(group_importances.values()))
+                            importance_variance = importances_array.std(axis=0)
+                            
+                            for feat_idx, feat_name in enumerate(feature_cols):
+                                if importance_variance[feat_idx] > 0.02:  # Threshold for differential importance
+                                    # Check if this feature's importance differs significantly by group
+                                    importance_diff = (
+                                        importances_array[:, feat_idx].max() - 
+                                        importances_array[:, feat_idx].min()
+                                    )
+                                    
+                                    if importance_diff > 0.01:  # Significant difference
+                                        # Check if not already flagged
+                                        already_flagged = any(
+                                            p['feature'] == feat_name and 
+                                            p['sensitive_attribute'] == sensitive_attr
+                                            for p in proxy_flags
+                                        )
+                                        
+                                        if not already_flagged:
+                                            proxy_flags.append({
+                                                "feature": feat_name,
+                                                "sensitive_attribute": sensitive_attr,
+                                                "shap_differential_importance": round(importance_diff, 4),
+                                                "detection_method": "shap",
+                                                "risk_level": "MEDIUM"
+                                            })
+            
+            except Exception as e:
+                # SHAP analysis failed, continue with correlation-only results
+                pass
+        
+        # Sort by risk and remove duplicates (keep highest risk version)
+        seen = {}
+        for flag in sorted(proxy_flags, key=lambda x: x.get('risk_level') == 'HIGH', reverse=True):
+            key = (flag['feature'], flag['sensitive_attribute'])
+            if key not in seen:
+                seen[key] = flag
+        
+        proxy_flags = list(seen.values())
+        proxy_flags = sorted(proxy_flags, key=lambda x: (
+            x.get('correlation', 0),
+            x.get('shap_differential_importance', 0)
+        ), reverse=True)
         
     except Exception as e:
         # Return empty list on error

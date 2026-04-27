@@ -57,9 +57,19 @@ async def analyze_dataset(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Bias computation failed: {str(e)}")
 
-    # 6. Generate AI explanation
-    explanation = await generate_explanation(metrics, sens_cols, domain)
-    metrics["explanation"] = explanation
+    # 6. Generate AI explanation with RAG context and citations
+    explanation_result = await generate_explanation(metrics, sens_cols, domain)
+    
+    # Handle both old format (string) and new format (dict with citations)
+    if isinstance(explanation_result, dict):
+        metrics["explanation"] = explanation_result.get("explanation", "")
+        metrics["citations"] = explanation_result.get("citations", [])
+        metrics["sources"] = explanation_result.get("sources", [])
+    else:
+        # Backward compatibility
+        metrics["explanation"] = explanation_result
+        metrics["citations"] = []
+        metrics["sources"] = []
 
     return JSONResponse(content={
         "status": "success",

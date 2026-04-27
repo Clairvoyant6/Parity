@@ -396,3 +396,160 @@ def _calculate_risk_score(group_metrics: dict, proxy_flags: list,
         score += variation * 20
     
     return min(score, 100)
+
+
+def recommend_mitigations(metrics: dict, df: pd.DataFrame, 
+                         target_col: str, sensitive_cols: list) -> list:
+    """
+    PHASE 2: Recommend fairness mitigation strategies based on detected bias.
+    Uses Fairlearn and AIF360 best practices.
+    
+    Args:
+        metrics: Bias metrics from compute_bias_metrics()
+        df: Original dataset
+        target_col: Target column name
+        sensitive_cols: List of sensitive attributes
+    
+    Returns:
+        List of mitigation recommendations with priority and implementation guide
+    """
+    recommendations = []
+    risk_level = metrics.get('risk_level', 'UNKNOWN')
+    
+    # HIGH RISK: Implement aggressive mitigation
+    if risk_level == 'HIGH':
+        # Recommendation 1: Data reweighting (AIF360 Reweighing)
+        recommendations.append({
+            'priority': 'CRITICAL',
+            'category': 'Pre-processing',
+            'title': 'Apply Data Reweighting',
+            'description': 'Use AIF360 Reweighing algorithm to balance training samples across groups.',
+            'implementation': 'aif360.algorithms.preprocessing.Reweighing',
+            'expected_improvement': 'Reduces disparate impact by 20-40%',
+            'code_snippet': """
+from aif360.algorithms.preprocessing import Reweighing
+rw = Reweighing(unprivileged_groups=[{sensitive_attr: 0}],
+                 privileged_groups=[{sensitive_attr: 1}])
+dataset_transf = rw.fit_transform(dataset)
+            """,
+            'trade_offs': 'May slightly reduce overall accuracy'
+        })
+        
+        # Recommendation 2: Threshold optimization (Fairlearn)
+        recommendations.append({
+            'priority': 'CRITICAL',
+            'category': 'Post-processing',
+            'title': 'Optimize Decision Thresholds',
+            'description': 'Adjust prediction thresholds per demographic group to achieve demographic parity.',
+            'implementation': 'fairlearn.postprocessing.ThresholdOptimizer',
+            'expected_improvement': 'Reduces demographic parity difference to <5%',
+            'code_snippet': """
+from fairlearn.postprocessing import ThresholdOptimizer
+threshold_opt = ThresholdOptimizer(
+    estimator=model,
+    constraints='demographic_parity'
+)
+threshold_opt.fit(X_train, y_train, sensitive_features=sensitive_train)
+            """,
+            'trade_offs': 'Different thresholds per group may seem unfair to individuals'
+        })
+    
+    # MEDIUM RISK: Implement moderate mitigation
+    elif risk_level == 'MEDIUM':
+        recommendations.append({
+            'priority': 'HIGH',
+            'category': 'In-processing',
+            'title': 'Add Fairness Constraints to Model Training',
+            'description': 'Train model with fairness constraints using Fairlearn or AIF360.',
+            'implementation': 'fairlearn.reductions.ExponentiatedGradient',
+            'expected_improvement': 'Reduces bias while maintaining accuracy',
+            'code_snippet': """
+from fairlearn.reductions import ExponentiatedGradient, DemographicParity
+constraint = DemographicParity(difference_bound=0.1)
+mitigator = ExponentiatedGradient(estimator, constraints=constraint)
+mitigator.fit(X_train, y_train, sensitive_features=sensitive_train)
+            """,
+            'trade_offs': 'Requires model retraining, may reduce accuracy'
+        })
+        
+        recommendations.append({
+            'priority': 'HIGH',
+            'category': 'Feature Engineering',
+            'title': 'Remove Proxy Variables',
+            'description': 'Remove or transform features that proxy for protected attributes.',
+            'implementation': 'Feature selection and engineering',
+            'expected_improvement': 'Eliminates indirect discrimination',
+            'code_snippet': """
+# Remove high-correlation proxy features
+df_mitigated = df.drop(columns=['proxy_feature'])
+
+# Or: Use low-correlation transformations
+df_mitigated['transformed'] = apply_fairness_transform(df['proxy_feature'])
+            """,
+            'trade_offs': 'May lose predictive information'
+        })
+    
+    # LOW RISK: Monitoring and documentation
+    if risk_level in ['LOW', 'MEDIUM', 'HIGH']:
+        recommendations.append({
+            'priority': 'ALWAYS',
+            'category': 'Governance',
+            'title': 'Implement Fairness Monitoring',
+            'description': 'Monitor fairness metrics continuously in production.',
+            'implementation': 'Custom monitoring pipeline',
+            'expected_improvement': 'Detects bias drift early',
+            'code_snippet': """
+# Monitor fairness metrics quarterly
+for sensitive_attr in sensitive_cols:
+    di = compute_disparate_impact(predictions, protected=sensitive_attr)
+    if di < 0.8:
+        alert_management('Disparate Impact violation detected')
+            """,
+            'trade_offs': 'None - always recommended'
+        })
+    
+    # Check for specific proxy issues
+    if metrics.get('proxy_flags'):
+        proxy_count = len(metrics['proxy_flags'])
+        proxy_features = ', '.join([p['feature'] for p in metrics.get('proxy_flags', [])][:3])
+        recommendations.append({
+            'priority': 'HIGH',
+            'category': 'Feature Engineering',
+            'title': f"Remove Detected Proxies ({proxy_count} features)",
+            'description': f"The following features correlate with protected attributes: {proxy_features}",
+            'implementation': 'Feature removal or decorrelation',
+            'expected_improvement': '30-50% reduction in proxy discrimination',
+            'code_snippet': """
+# Remove proxy variables
+proxy_features = ['zip_code', 'address']  # Examples
+df_clean = df.drop(columns=proxy_features)
+            """,
+            'trade_offs': 'May reduce model interpretability'
+        })
+    
+    # Check for high disparate impact
+    if metrics.get('disparate_impact_avg', 1.0) < 0.8:
+        recommendations.append({
+            'priority': 'CRITICAL',
+            'category': 'Model Retraining',
+            'title': 'Address Disparate Impact (80% Rule Violation)',
+            'description': 'Current DI ratio violates the 80% rule. Implement mitigation immediately.',
+            'implementation': 'AIF360 + Fairlearn combined approach',
+            'expected_improvement': 'DI > 0.8 (legal compliance)',
+            'code_snippet': """
+# Implement two-step mitigation
+# Step 1: Reweight training data
+df_reweighted = apply_reweighting(df, protected=sensitive_cols)
+
+# Step 2: Retrain with fairness constraints
+model = train_fair_model(df_reweighted, constraints='demographic_parity')
+            """,
+            'trade_offs': 'Requires retraining and validation'
+        })
+    
+    # Sort by priority (CRITICAL > HIGH > MEDIUM > ALWAYS)
+    priority_order = {'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'ALWAYS': 3}
+    recommendations = sorted(recommendations, 
+                             key=lambda x: priority_order.get(x['priority'], 99))
+    
+    return recommendations

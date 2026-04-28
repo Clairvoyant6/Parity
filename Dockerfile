@@ -10,14 +10,20 @@ RUN pnpm build
 FROM python:3.11-slim
 WORKDIR /app
 
-# Install system dependencies for AIF360 and xhtml2pdf (if any)
+# Install system dependencies for AIF360 and xhtml2pdf
 RUN apt-get update && apt-get install -y \
     build-essential \
+    python3-dev \
+    libcairo2-dev \
+    pkg-config \
+    cmake \
+    libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy backend requirements and install
 COPY backend/requirements.txt ./backend/requirements.txt
-RUN pip install --no-cache-dir -r backend/requirements.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r backend/requirements.txt
 
 # Copy backend code
 COPY backend/ ./backend/

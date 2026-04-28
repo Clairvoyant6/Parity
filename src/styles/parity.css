@@ -1,0 +1,230 @@
+/* ── Parity Design System Tokens ─────────────────────────────── */
+:root {
+  /* Brand Blues */
+  --parity-blue-50: #EFF6FF;
+  --parity-blue-100: #DBEAFE;
+  --parity-blue-300: #93C5FD;
+  --parity-blue-400: #3B82F6;
+  --parity-blue-500: #2563EB;
+  --parity-blue-600: #1D4ED8;
+  --parity-blue-900: #1E3A5F;
+
+  /* Brand Orange (Landing Page / Cloud7 aesthetic) */
+  --parity-orange-50:  #FFF7ED;
+  --parity-orange-100: #FFEDD5;
+  --parity-orange-200: #FED7AA;
+  --parity-orange-300: #FDBA74;
+  --parity-orange-400: #FB923C;
+  --parity-orange-500: #F97316;
+  --parity-orange-600: #EA580C;
+  --parity-orange-700: #C2410C;
+  --parity-orange-900: #431407;
+
+  /* Semantic Bias Risk Colors */
+  --bias-fair: #10B981;
+  --bias-caution: #F59E0B;
+  --bias-risk: #EF4444;
+  --bias-fair-bg: #ECFDF5;
+  --bias-caution-bg: #FFFBEB;
+  --bias-risk-bg: #FEF2F2;
+
+  /* Neutrals */
+  --parity-gray-50: #F9FAFB;
+  --parity-gray-100: #F3F4F6;
+  --parity-gray-200: #E5E7EB;
+  --parity-gray-300: #D1D5DB;
+  --parity-gray-400: #9CA3AF;
+  --parity-gray-500: #6B7280;
+  --parity-gray-700: #374151;
+  --parity-gray-900: #111827;
+
+  /* Domain Accent Colors */
+  --domain-hiring: #8B5CF6;
+  --domain-lending: #059669;
+  --domain-health: #DC2626;
+  --domain-education: #D97706;
+  --domain-justice: #2563EB;
+  --domain-social: #EC4899;
+
+  /* Typography */
+  --font-display: 'DM Sans', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Spacing Scale */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-24: 6rem;
+
+  /* Border Radius */
+  --parity-radius-sm: 0.375rem;
+  --parity-radius-md: 0.5rem;
+  --parity-radius-lg: 0.75rem;
+  --parity-radius-xl: 1rem;
+  --parity-radius-full: 9999px;
+
+  --btn-radius: var(--parity-radius-md);
+}
+
+/* ── Global Font Smoothing ─────────────────────────────── */
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-family: var(--font-body);
+}
+
+/* ── Gradient Text Pattern ─────────────────────────────── */
+.parity-gradient-text {
+  background-image: linear-gradient(to top left, #1D4ED8 6%, #3B82F6 62%, #93C5FD 92%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  position: relative;
+  display: inline-block;
+}
+
+/* ── Section Label ─────────────────────────────── */
+.section-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--parity-blue-500);
+}
+
+.section-label__highlighter {
+  width: 20px;
+  height: 4px;
+  background: var(--parity-blue-500);
+  border-radius: 2px;
+}
+
+/* ── Gradient Border Button ─────────────────────────────── */
+.parity-btn {
+  position: relative;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.parity-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--btn-radius);
+  padding: 1px;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  background: linear-gradient(to bottom, var(--parity-blue-300), var(--parity-blue-600));
+}
+
+/* ── Animated Balance Scale ─────────────────────────────── */
+@keyframes scaleTip {
+  0%, 100% { transform: rotate(-8deg); }
+  50% { transform: rotate(8deg); }
+}
+
+@keyframes floatUp {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes floatDown {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(8px); }
+}
+
+@keyframes drift {
+  0% { transform: translate(0, 0); }
+  25% { transform: translate(5px, -5px); }
+  50% { transform: translate(0, -10px); }
+  75% { transform: translate(-5px, -5px); }
+  100% { transform: translate(0, 0); }
+}
+
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes metricStream {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(2); opacity: 0; }
+}
+
+/* ── Metric Card Hover ─────────────────────────────── */
+.feature-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.feature-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(37, 99, 235, 0.12);
+}
+
+/* ── Range Slider Custom Styling ─────────────────────────────── */
+.parity-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+}
+
+.parity-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--parity-blue-500);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.4);
+  border: 2px solid white;
+}
+
+/* ── Scroll Reveal Animation ─────────────────────────────── */
+.reveal-on-scroll {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.reveal-on-scroll.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── Progress Ring Animation ─────────────────────────────── */
+.progress-ring-circle {
+  transition: stroke-dashoffset 1.5s ease;
+  transform-origin: center;
+  transform: rotate(-90deg);
+}

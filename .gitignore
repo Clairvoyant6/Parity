@@ -1,0 +1,59 @@
+# ── Node / Frontend ────────────────────────────────
+node_modules/
+dist/
+dist-ssr/
+.cache/
+.vite/
+*.local
+
+# ── Python / Backend ───────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+*.egg-info/
+.eggs/
+*.egg
+pip-wheel-metadata/
+*.pyc
+
+# ── Database ───────────────────────────────────────
+*.db
+*.sqlite3
+*.sqlite
+
+# ── Environment & Secrets ──────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── AIF360 source reference (use pip package instead) ──
+AIF360-main/
+
+# ── Report documents (not source code) ─────────────
+*.docx
+*.pdf
+
+# ── IDE ────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ── Logs ───────────────────────────────────────────
+*.log
+logs/
+npm-debug.log*
+pnpm-debug.log*
+
+# ── Test / Debug files (backend) ───────────────────
+backend/test_*.py
+backend/debug_*.py
+backend/__pycache__/

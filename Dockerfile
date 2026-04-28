@@ -1,3 +1,4 @@
+# --- Parity Deployment v1.1 ---
 # --- Stage 1: Build the Frontend ---
 FROM node:20-slim AS frontend-builder
 WORKDIR /app

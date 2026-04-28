@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.api.routes import router
@@ -25,15 +26,28 @@ app.add_middleware(
 
 app.include_router(router, prefix="/api")
 
-# Serve datasets directory so the frontend demo button can load the COMPAS CSV
+# Serve datasets directory
 datasets_dir = os.path.join(os.path.dirname(__file__), "datasets")
 if os.path.isdir(datasets_dir):
     app.mount("/datasets", StaticFiles(directory=datasets_dir), name="datasets")
 
-@app.get("/")
-def root():
-    return {"message": "Parity Backend Running. Visit /docs for API documentation."}
+# Production: Serve React Frontend
+# We look for the 'dist' folder which will be copied into the container
+frontend_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "dist")
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "service": "parity-backend"}
+    return {"status": "ok", "service": "parity-backend", "mode": "production" if os.path.exists(frontend_dir) else "dev"}
+
+if os.path.exists(frontend_dir):
+    app.mount("/", StaticFiles(directory=frontend_dir, html=True), name="frontend")
+    
+    # Catch-all route to handle React Router (SPA) deep links
+    @app.exception_handler(404)
+    async def not_found_exception_handler(request, exc):
+        return FileResponse(os.path.join(frontend_dir, "index.html"))
+else:
+    @app.get("/")
+    def root():
+        return {"message": "Parity API is running. (Frontend 'dist' not found, serving API only)"}
+

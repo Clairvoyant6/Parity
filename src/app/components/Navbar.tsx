@@ -19,14 +19,18 @@ export function Navbar({ variant = 'marketing' }: NavbarProps) {
   }, []);
 
   const marketingLinks = [
+    { label: 'About Us', href: '/' },
     { label: 'Features', href: '#features' },
     { label: 'Domains', href: '#domains' },
-    { label: 'Research', href: '#' },
+    { label: 'Research', href: '#research' },
+    { label: 'Dashboard', href: '/app/upload' },
   ];
 
   const appLinks = [
+    { label: 'About Us', href: '/' },
     { label: 'Upload', href: '/app/upload' },
     { label: 'Docs', href: '#' },
+    { label: 'Dashboard', href: '/app/upload' },
   ];
 
   const links = variant === 'app' ? appLinks : marketingLinks;

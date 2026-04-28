@@ -15,66 +15,25 @@ export function Footer() {
             <p className="text-sm leading-relaxed mb-6" style={{ color: '#6B7280', fontFamily: 'Inter, sans-serif' }}>
               Open-source AI fairness auditing. Detect, understand, and fix algorithmic bias before it causes harm.
             </p>
-            <div className="flex gap-3">
-              {[
-                { icon: Github, href: 'https://github.com', label: 'GitHub' },
-                { icon: Twitter, href: '#', label: 'Twitter' },
-                { icon: Linkedin, href: '#', label: 'LinkedIn' },
-              ].map(({ icon: Icon, href, label }) => (
-                <a
-                  key={label}
-                  href={href}
-                  className="w-9 h-9 rounded-lg flex items-center justify-center border border-white/10 text-[#6B7280] hover:text-white hover:border-white/30 transition-colors"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Icon size={16} />
-                </a>
-              ))}
-            </div>
+
           </div>
 
-          {/* Links */}
-          <div>
-            <h4 className="text-white text-sm font-semibold mb-4" style={{ fontFamily: 'DM Sans, sans-serif' }}>Platform</h4>
-            <ul className="space-y-3">
-              {[
-                { label: 'Features', href: '#features' },
-                { label: 'Pricing', href: '#pricing' },
-                { label: 'Research', href: '#' },
-                { label: 'API Docs', href: '#' },
-                { label: 'GitHub', href: 'https://github.com', external: true },
-              ].map((link) => (
-                <li key={link.label}>
-                  <a
-                    href={link.href}
-                    className="text-sm text-[#6B7280] hover:text-white transition-colors flex items-center gap-1"
-                    style={{ fontFamily: 'Inter, sans-serif' }}
-                    target={link.external ? '_blank' : undefined}
-                    rel={link.external ? 'noopener noreferrer' : undefined}
-                  >
-                    {link.label}
-                    {link.external && <ExternalLink size={12} />}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
+
 
           {/* Resources */}
           <div>
             <h4 className="text-white text-sm font-semibold mb-4" style={{ fontFamily: 'DM Sans, sans-serif' }}>Resources</h4>
             <ul className="space-y-3">
               {[
-                'EU AI Act Guide',
-                'NYC Local Law 144',
-                'COMPAS Dataset',
-                'Fairness Metrics Explained',
-                'Blog',
+                { name: 'EU AI Act Guide', href: 'https://artificialintelligenceact.eu/' },
+                { name: 'NYC Local Law 144', href: 'https://www.nyc.gov/site/dca/about/automated-employment-decision-tools.page' },
+                { name: 'COMPAS Dataset', href: 'https://www.propublica.org/datastore/dataset/compas-recidivism-risk-score-data-and-analysis' },
+                { name: 'Fairness Metrics Explained', href: 'https://aif360.readthedocs.io/en/latest/modules/metrics.html' },
+                { name: 'Blog', href: '#' },
               ].map((item) => (
-                <li key={item}>
-                  <a href="#" className="text-sm text-[#6B7280] hover:text-white transition-colors" style={{ fontFamily: 'Inter, sans-serif' }}>
-                    {item}
+                <li key={item.name}>
+                  <a href={item.href} target="_blank" rel="noopener noreferrer" className="text-sm text-[#6B7280] hover:text-white transition-colors" style={{ fontFamily: 'Inter, sans-serif' }}>
+                    {item.name}
                   </a>
                 </li>
               ))}
@@ -91,13 +50,7 @@ export function Footer() {
             <a href="https://fairlearn.org" className="hover:text-[#6B7280] transition-colors" target="_blank" rel="noopener noreferrer">Fairlearn</a>
             . Open-source under MIT license.
           </p>
-          <div className="flex items-center gap-4">
-            {['Privacy Policy', 'Terms of Service'].map((item) => (
-              <a key={item} href="#" className="text-xs text-[#4B5563] hover:text-[#6B7280] transition-colors" style={{ fontFamily: 'Inter, sans-serif' }}>
-                {item}
-              </a>
-            ))}
-          </div>
+
         </div>
       </div>
     </footer>

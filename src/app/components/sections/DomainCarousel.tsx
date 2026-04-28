@@ -13,6 +13,7 @@ const slides = [
     detail: "Amazon's machine learning model trained on resumes submitted over a 10-year period, predominantly from men, and taught itself that male candidates were preferable.",
     year: '2018',
     icon: '🧑‍💼',
+    link: 'https://www.reuters.com/article/us-amazon-com-jobs-automation-insight-idUSKCN1MK08G/'
   },
   {
     domain: 'health' as Domain,
@@ -22,6 +23,7 @@ const slides = [
     detail: "A widely used healthcare algorithm systematically assigned lower risk scores to Black patients, leading to far less care being recommended compared to white patients with the same conditions.",
     year: '2019',
     icon: '🏥',
+    link: 'https://www.science.org/doi/10.1126/science.aax2342'
   },
   {
     domain: 'justice' as Domain,
@@ -31,6 +33,7 @@ const slides = [
     detail: "The COMPAS recidivism risk scoring system showed significant racial bias, with Black defendants nearly twice as likely to be falsely flagged as future criminals compared to white defendants.",
     year: '2016',
     icon: '⚖️',
+    link: 'https://www.propublica.org/article/machine-bias-risk-assessments-in-criminal-sentencing'
   },
   {
     domain: 'lending' as Domain,
@@ -40,6 +43,7 @@ const slides = [
     detail: "Algorithmic mortgage lenders charge Black and Hispanic borrowers higher rates than comparable white borrowers, despite claims that removing human judgment would eliminate discrimination.",
     year: '2019',
     icon: '💳',
+    link: 'https://www.nber.org/papers/w25360'
   },
   {
     domain: 'education' as Domain,
@@ -49,6 +53,7 @@ const slides = [
     detail: "An Ofqual algorithm downgraded 40% of teacher-predicted A-level grades, disproportionately affecting students from lower-income areas and state schools.",
     year: '2020',
     icon: '🎓',
+    link: 'https://www.nature.com/articles/d41586-020-02450-4'
   },
   {
     domain: 'social' as Domain,
@@ -58,6 +63,7 @@ const slides = [
     detail: "AI content moderation systems disproportionately flag and remove posts by Black users and anti-hate speech advocates, effectively amplifying the voices of harassers.",
     year: '2024',
     icon: '📱',
+    link: 'https://www.pnas.org/doi/10.1073/pnas.2308064121'
   },
 ];
 
@@ -70,7 +76,7 @@ export function DomainCarousel() {
   const slide = slides[activeIndex];
 
   return (
-    <section className="py-24" style={{ background: '#0F172A' }} id="domains">
+    <section className="py-24" style={{ background: '#0F172A' }} id="research">
       <div className="max-w-7xl mx-auto px-6">
         <div className="text-center mb-12">
           <SectionLabel text="Real-World Bias" className="justify-center mb-4" />
@@ -121,9 +127,15 @@ export function DomainCarousel() {
                   </div>
                   <div className="text-xs text-[#6B7280]" style={{ fontFamily: 'Inter, sans-serif' }}>{slide.source}</div>
                 </div>
-                <button className="flex items-center gap-1.5 text-xs text-[#3B82F6] hover:text-[#93C5FD] transition-colors" style={{ fontFamily: 'Inter, sans-serif' }}>
+                <a 
+                  href={slide.link} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="flex items-center gap-1.5 text-xs text-[#3B82F6] hover:text-[#93C5FD] transition-colors" 
+                  style={{ fontFamily: 'Inter, sans-serif' }}
+                >
                   Read paper <ExternalLink size={12} />
-                </button>
+                </a>
               </div>
             </div>
 

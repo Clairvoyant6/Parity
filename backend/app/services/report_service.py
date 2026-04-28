@@ -111,9 +111,15 @@ def generate_pdf_report(metrics: dict, filename: str, sensitive_cols: list, doma
     )
 
     try:
-        from weasyprint import HTML
-        pdf_bytes = HTML(string=html).write_pdf()
-        return pdf_bytes
-    except Exception:
-        # If WeasyPrint fails, return HTML as bytes
+        from xhtml2pdf import pisa
+        from io import BytesIO
+        result = BytesIO()
+        pdf = pisa.CreatePDF(BytesIO(html.encode("utf-8")), dest=result)
+        if not pdf.err:
+            return result.getvalue()
+        else:
+            return html.encode("utf-8")
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
         return html.encode("utf-8")

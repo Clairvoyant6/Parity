@@ -63,7 +63,11 @@ export function AnalysisDashboard() {
   }
 
   // ── SHAP / feature-importance chart data ───────────────────────────
-  const shapData = (r.feature_importance ?? [])
+  const shapEntries = Array.isArray(r.feature_importance)
+    ? r.feature_importance
+    : Object.entries(r.feature_importance || {}).map(([k, v]) => ({ feature: k, shap_value: v }));
+
+  const shapData = shapEntries
     .map((fi) => ({
       feature: fi.feature ?? Object.keys(fi)[0],
       importance: fi.shap_value ?? (Object.values(fi)[0] as number),

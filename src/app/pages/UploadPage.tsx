@@ -229,25 +229,41 @@ export function UploadPage() {
                   )}
                 </div>
 
-                {/* Demo dataset button */}
-                <button
-                  onClick={async () => {
-                    try {
-                      const res = await fetch('/datasets/compas-scores-two-years.csv');
-                      const blob = await res.blob();
-                      const demoFile = new File([blob], 'compas-scores-two-years.csv', { type: 'text/csv' });
-                      await onDrop([demoFile]);
-                    } catch {
-                      setError('Could not load demo dataset. Make sure the backend is running.');
-                    }
-                  }}
-                  className="mt-4 w-full py-3 rounded-xl border border-dashed text-sm transition-colors"
-                  style={{ borderColor: '#E5E7EB', color: '#6B7280', fontFamily: 'Inter, sans-serif' }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#3B82F6'; (e.currentTarget as HTMLElement).style.color = '#3B82F6'; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#E5E7EB'; (e.currentTarget as HTMLElement).style.color = '#6B7280'; }}
-                >
-                  Use demo dataset (COMPAS recidivism data)
-                </button>
+                {/* Demo datasets */}
+                <div className="mt-6 border border-[#E5E7EB] rounded-xl p-4 bg-white shadow-sm ring-4 ring-blue-500/20">
+                  <label className="block text-sm font-semibold text-[#374151] mb-2" style={{ fontFamily: 'Inter, sans-serif' }}>
+                    Or try a demo dataset:
+                  </label>
+                  <div className="flex flex-col gap-2">
+                    {[
+                      { name: 'COMPAS Recidivism (Criminal Justice)', file: 'compas-scores-two-years.csv' },
+                      { name: 'Adult Income (General/Hiring)', file: 'adult-income.csv' },
+                      { name: 'German Credit (Lending)', file: 'german-credit.csv' },
+                      { name: 'Heart Disease (Healthcare)', file: 'heart-disease.csv' },
+                      { name: 'Student Performance (Education)', file: 'student-performance.csv' },
+                    ].map((demo) => (
+                      <button
+                        key={demo.file}
+                        onClick={async () => {
+                          try {
+                            const res = await fetch(`/datasets/${demo.file}`);
+                            if (!res.ok) throw new Error('Dataset not found');
+                            const blob = await res.blob();
+                            const demoFile = new File([blob], demo.file, { type: 'text/csv' });
+                            await onDrop([demoFile]);
+                          } catch {
+                            setError(`Could not load ${demo.name}. Make sure it exists in public/datasets/.`);
+                          }
+                        }}
+                        className="w-full py-2.5 px-4 rounded-lg border border-[#E5E7EB] text-sm text-left transition-colors hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 flex justify-between items-center"
+                        style={{ fontFamily: 'Inter, sans-serif', color: '#4B5563' }}
+                      >
+                        {demo.name}
+                        <ChevronRight size={16} className="text-gray-400" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </>
             ) : (
               <div className="rounded-xl border border-[#A7F3D0] bg-[#ECFDF5] p-6 flex items-center gap-4">
@@ -366,7 +382,7 @@ export function UploadPage() {
                         >
                           <option value="">— Skip —</option>
                           <option value="target">Target Variable</option>
-                          <option value="protected">Protected Attribute</option>
+                          <option value="protected">Sensitive Variable</option>
                           <option value="ignore">Ignore</option>
                         </select>
                       </div>
@@ -384,7 +400,7 @@ export function UploadPage() {
                 {targetCol && protectedCols.length === 0 && (
                   <div className="flex items-center gap-2 text-xs text-[#D97706]" style={{ fontFamily: 'Inter, sans-serif' }}>
                     <AlertCircle size={14} />
-                    Label at least one column as <strong>Protected Attribute</strong>
+                    Label at least one column as <strong>Sensitive Variable</strong>
                   </div>
                 )}
 
@@ -407,7 +423,7 @@ export function UploadPage() {
 
                 {canRunAnalysis && !isAnalysing && (
                   <p className="text-xs text-center text-[#9CA3AF]" style={{ fontFamily: 'Inter, sans-serif' }}>
-                    Target: <strong>{targetCol}</strong> · Protected: <strong>{protectedCols.join(', ')}</strong>
+                    Target: <strong>{targetCol}</strong> · Sensitive: <strong>{protectedCols.join(', ')}</strong>
                   </p>
                 )}
               </div>

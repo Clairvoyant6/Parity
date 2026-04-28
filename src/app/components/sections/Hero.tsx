@@ -59,19 +59,7 @@ export function Hero() {
               </button>
             </div>
 
-            {/* Trust logos */}
-            <div>
-              <p className="text-xs text-[#6B7280] mb-4 uppercase tracking-wider" style={{ fontFamily: 'Inter, sans-serif' }}>
-                Trusted by researchers at
-              </p>
-              <div className="flex flex-wrap gap-6 items-center justify-center lg:justify-start opacity-40">
-                {['IBM', 'NASA', 'ProPublica', 'MIT', 'Stanford'].map((org) => (
-                  <span key={org} className="text-sm font-semibold text-white" style={{ fontFamily: 'DM Sans, sans-serif' }}>
-                    {org}
-                  </span>
-                ))}
-              </div>
-            </div>
+
           </div>
 
           {/* Right - Animated Balance Scale + Floating Metric Cards */}

@@ -26,12 +26,7 @@ export function CTASection() {
             <ArrowRight size={20} />
           </PrimaryButton>
         </Link>
-        <p
-          className="mt-4 text-sm"
-          style={{ color: '#4B5563', fontFamily: 'Inter, sans-serif' }}
-        >
-          Trusted by AI researchers at IBM, MIT, Stanford & more
-        </p>
+
       </div>
     </section>
   );

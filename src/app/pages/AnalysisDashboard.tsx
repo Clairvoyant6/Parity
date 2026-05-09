@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { useState } from 'react';
+import { Link } from 'react-router';
 import { Navbar } from '../components/Navbar';
 import { ProgressRing } from '../components/ui/ProgressRing';
 import { PrimaryButton } from '../components/ui/Button';
@@ -12,21 +12,13 @@ import { useAnalysis } from '../../context/AnalysisContext';
 import { exportReport, triggerDownload } from '../../services/api';
 
 export function AnalysisDashboard() {
-  const navigate = useNavigate();
   const { analysisResult, file, targetColumn, sensitiveColumns, domain } = useAnalysis();
   const [showExplanation, setShowExplanation] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
-  // Redirect to upload if there's no analysis result
-  useEffect(() => {
-    if (!analysisResult) navigate('/app/upload');
-  }, [analysisResult, navigate]);
-
   if (!analysisResult) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#F9FAFB' }}>
-        <Loader2 size={32} className="animate-spin text-blue-500" />
-      </div>
+      <RecoverableEmptyState />
     );
   }
 
@@ -52,7 +44,6 @@ export function AnalysisDashboard() {
   });
 
   const maxRate = Math.max(...groupChartData.map((d) => d.rate), 1);
-  const threshold = Math.round(maxRate * 0.8);
 
   function barColor(rate: number) {
     const ratio = rate / maxRate;
@@ -120,6 +111,24 @@ export function AnalysisDashboard() {
   const unavailableMetrics = metrics.filter((m) => m.status === 'unavailable');
   const riskMetrics = metrics.filter((m) => m.status === 'risk');
   const violations = metrics.filter((m) => m.status === 'risk').length;
+  const proxyCount = (r.proxy_flags ?? []).length;
+  const executiveSummary = (() => {
+    if (riskMetrics.length === 0 && proxyCount === 0) {
+      return 'The current run is within the primary fairness thresholds and does not show proxy warnings.';
+    }
+    const items = [
+      di < 0.8 ? 'disparate impact is below the 80% rule' : null,
+      dp > 0.2 ? 'demographic parity spread is above the guidance line' : null,
+      proxyCount > 0 ? `${proxyCount} proxy feature${proxyCount > 1 ? 's' : ''} are still correlated with protected attributes` : null,
+    ].filter(Boolean);
+    return `The run shows ${items.join('; ')}.`;
+  })();
+  const nextActions = [
+    di < 0.8 ? 'Inspect the affected groups and consider reweighting or threshold adjustment.' : null,
+    proxyCount > 0 ? 'Open Bias Details to review the proxy heatmap before export.' : null,
+    unavailableMetrics.length > 0 ? 'Fill the missing metric gaps before sign-off.' : null,
+    'Run a What-If simulation to test a mitigation idea.',
+  ].filter((item, index, list) => Boolean(item) && list.indexOf(item) === index).slice(0, 3) as string[];
 
   // ── Export PDF handler ─────────────────────────────────────────────
   async function handleExport() {
@@ -171,6 +180,60 @@ export function AnalysisDashboard() {
               {isExporting ? 'Exporting…' : 'Export Report'}
             </PrimaryButton>
           </div>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,0.95fr)] mb-8">
+          <section className="rounded-2xl border border-[#E5E7EB] bg-white p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-[#6B7280]" style={{ fontFamily: 'Inter, sans-serif' }}>
+                  Executive summary
+                </div>
+                <h2 className="mt-1 text-lg font-semibold text-[#111827]" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+                  What this run says
+                </h2>
+              </div>
+              <span
+                className="text-xs font-medium px-2.5 py-1 rounded-full"
+                style={{
+                  backgroundColor: violations > 0 ? '#FEF2F2' : proxyCount > 0 ? '#FFFBEB' : '#ECFDF5',
+                  color: violations > 0 ? '#DC2626' : proxyCount > 0 ? '#D97706' : '#059669',
+                }}
+              >
+                {violations > 0 ? 'Mitigation required' : proxyCount > 0 ? 'Review recommended' : 'Ready'}
+              </span>
+            </div>
+            <p className="mt-3 text-sm leading-6 text-[#374151]" style={{ fontFamily: 'Inter, sans-serif' }}>
+              {executiveSummary}
+            </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <MiniSummary label="Risk score" value={`${r.bias_risk_score}/100`} note={r.risk_level} />
+              <MiniSummary label="Metrics reported" value={`${metrics.length - unavailableMetrics.length}/${metrics.length}`} note="Live from backend" />
+              <MiniSummary label="Proxy flags" value={String(proxyCount)} note={proxyCount > 0 ? 'Needs review' : 'None detected'} />
+            </div>
+          </section>
+
+          <aside className="rounded-2xl border border-[#E5E7EB] bg-white p-6">
+            <div className="text-xs font-semibold uppercase tracking-wide text-[#6B7280]" style={{ fontFamily: 'Inter, sans-serif' }}>
+              Next actions
+            </div>
+            <ul className="mt-3 space-y-3">
+              {nextActions.map((item) => (
+                <li key={item} className="flex gap-3 rounded-xl border border-[#F3F4F6] bg-[#FAFAFA] px-3 py-2">
+                  <span className="mt-1 h-2 w-2 rounded-full bg-[#2563EB] flex-shrink-0" />
+                  <span className="text-sm text-[#374151]" style={{ fontFamily: 'Inter, sans-serif' }}>{item}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Link to="/app/analysis/whatif" className="text-xs font-medium rounded-lg border border-[#E5E7EB] px-3 py-2 text-[#374151] hover:border-[#10B981] hover:text-[#10B981] transition-colors" style={{ fontFamily: 'Inter, sans-serif' }}>
+                Open What-If
+              </Link>
+              <Link to="/app/analysis/details" className="text-xs font-medium rounded-lg border border-[#E5E7EB] px-3 py-2 text-[#374151] hover:border-[#3B82F6] hover:text-[#3B82F6] transition-colors" style={{ fontFamily: 'Inter, sans-serif' }}>
+                View drilldown
+              </Link>
+            </div>
+          </aside>
         </div>
 
         {/* Score + Metric cards */}
@@ -603,5 +666,44 @@ function ExplanationDrawer({ result, onClose }: { result: ReturnType<typeof useA
         </div>
       </div>
     </>
+  );
+}
+
+function RecoverableEmptyState() {
+  return (
+    <div className="min-h-screen" style={{ background: '#F9FAFB' }}>
+      <Navbar variant="app" />
+      <div className="mx-auto flex min-h-screen max-w-3xl items-center px-6 py-24">
+        <div className="w-full rounded-2xl border border-[#E5E7EB] bg-white p-8">
+          <div className="text-xs font-semibold uppercase tracking-wide text-[#6B7280]" style={{ fontFamily: 'Inter, sans-serif' }}>
+            Recoverable state
+          </div>
+          <h1 className="mt-2 text-2xl font-bold text-[#111827]" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+            No analysis is loaded
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-[#374151]" style={{ fontFamily: 'Inter, sans-serif' }}>
+            Upload a CSV or open a demo dataset to recover the analysis flow. Once a run exists in session storage, this page restores the saved summary and selections instead of redirecting away.
+          </p>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link to="/app/upload" className="inline-flex items-center rounded-lg bg-[#2563EB] px-4 py-2 text-sm font-medium text-white hover:bg-[#1D4ED8]" style={{ fontFamily: 'Inter, sans-serif' }}>
+              Go to upload
+            </Link>
+            <Link to="/app/onboard" className="inline-flex items-center rounded-lg border border-[#E5E7EB] px-4 py-2 text-sm font-medium text-[#374151] hover:border-[#3B82F6] hover:text-[#3B82F6]" style={{ fontFamily: 'Inter, sans-serif' }}>
+              Start from onboarding
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MiniSummary({ label, value, note }: { label: string; value: string; note: string }) {
+  return (
+    <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] p-3">
+      <div className="text-xs text-[#6B7280]" style={{ fontFamily: 'Inter, sans-serif' }}>{label}</div>
+      <div className="mt-1 text-lg font-semibold text-[#111827]" style={{ fontFamily: 'DM Sans, sans-serif' }}>{value}</div>
+      <div className="text-xs text-[#6B7280]" style={{ fontFamily: 'Inter, sans-serif' }}>{note}</div>
+    </div>
   );
 }

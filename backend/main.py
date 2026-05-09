@@ -1,9 +1,10 @@
 from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.api.routes import router
 from app.core.database import engine, Base
+from app.models import analysis as _analysis_model  # noqa: F401
 import os
 
 # Create database tables on startup
@@ -41,16 +42,14 @@ for datasets_dir in datasets_candidates:
 # We look for the 'dist' folder which will be copied into the container
 frontend_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "dist")
 
-@app.get("/api/health")
-def health():
-    return {"status": "ok", "service": "parity-backend", "mode": "production" if os.path.exists(frontend_dir) else "dev"}
-
 if os.path.exists(frontend_dir):
     app.mount("/", StaticFiles(directory=frontend_dir, html=True), name="frontend")
     
     # Catch-all route to handle React Router (SPA) deep links
     @app.exception_handler(404)
     async def not_found_exception_handler(request, exc):
+        if request.url.path.startswith("/api"):
+            return JSONResponse(status_code=404, content={"detail": "Not Found"})
         return FileResponse(os.path.join(frontend_dir, "index.html"))
 else:
     @app.get("/")

@@ -69,3 +69,26 @@ export interface WhatIfResponse {
   original_metrics: BiasMetrics;
   modified_metrics: BiasMetrics;
 }
+
+export interface DemoDatasetCatalogItem {
+  name: string;
+  description: string;
+  domain: string;
+  file: string;
+  suggested_target?: string;
+  suggested_sensitive?: string[];
+}
+
+export interface DemoDatasetCatalogResponse {
+  datasets: Array<{
+    name: string;
+    description: string;
+    domain: string;
+    file?: string;
+    filename?: string;
+    suggested_target?: string;
+    suggested_target_column?: string;
+    suggested_sensitive?: string | string[];
+    suggested_sensitive_columns?: string[];
+  }>;
+}

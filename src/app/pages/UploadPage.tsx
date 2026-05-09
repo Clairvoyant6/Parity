@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useDropzone } from 'react-dropzone';
 import { Navbar } from '../components/Navbar';
 import { PrimaryButton } from '../components/ui/Button';
@@ -7,8 +7,9 @@ import {
   Upload, CloudUpload, Shield, CheckCircle,
   AlertCircle, ChevronRight, Loader2, X
 } from 'lucide-react';
-import { previewCSV, analyzeDataset } from '../../services/api';
+import { analyzeDataset, fetchDemoDatasetCatalog, loadDemoDatasetFile, previewCSV } from '../../services/api';
 import { useAnalysis } from '../../context/AnalysisContext';
+import type { DemoDatasetCatalogItem } from '../../types/analysis';
 
 type ColumnRole = 'target' | 'protected' | 'ignore' | '';
 
@@ -18,12 +19,54 @@ interface ColumnConfig {
   sample: string[];
 }
 
+const PRESET_DEMO_BY_DOMAIN: Record<string, string> = {
+  general: 'adult-income.csv',
+  hiring: 'adult-income.csv',
+  lending: 'german-credit.csv',
+  healthcare: 'heart-disease.csv',
+  criminal_justice: 'compas-scores-two-years.csv',
+  education: 'student-performance.csv',
+};
+
+function splitColumns(value?: string | string[]) {
+  if (Array.isArray(value)) return value;
+  if (!value) return [];
+  return value.split(',').map((item) => item.trim()).filter(Boolean);
+}
+
+function findDemoPreset(
+  catalog: DemoDatasetCatalogItem[],
+  fileName: string
+): DemoDatasetCatalogItem | null {
+  return catalog.find((demo) => demo.file === fileName) ?? null;
+}
+
+function buildColumns(previewColumns: string[], previewRows: Record<string, unknown>[], preset?: DemoDatasetCatalogItem | null): ColumnConfig[] {
+  const target = preset?.suggested_target ?? '';
+  const sensitive = new Set(splitColumns(preset?.suggested_sensitive));
+
+  return previewColumns.map((name) => ({
+    name,
+    role: name === target ? 'target' : sensitive.has(name) ? 'protected' : '',
+    sample: previewRows.map((row) => String(row[name] ?? '')).slice(0, 3),
+  }));
+}
+
 export function UploadPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const {
-    setFile, setTargetColumn, setSensitiveColumns,
-    setDomain, setAnalysisResult, setAvailableColumns,
+    file,
+    demoDatasetFile,
+    analysisResult,
+    domain,
+    setFile,
+    setDemoDatasetFile,
+    setTargetColumn,
+    setSensitiveColumns,
+    setDomain,
+    setAnalysisResult,
+    setAvailableColumns,
   } = useAnalysis();
 
   // Local state
@@ -32,6 +75,7 @@ export function UploadPage() {
   const [fileInfo, setFileInfo] = useState<{ rows: number; cols: number } | null>(null);
   const [columns, setColumns] = useState<ColumnConfig[]>([]);
   const [previewRows, setPreviewRows] = useState<Record<string, unknown>[]>([]);
+  const [demoDatasets, setDemoDatasets] = useState<DemoDatasetCatalogItem[]>([]);
   const onboardingMode = searchParams.get('mode');
   const onboardingPreset = {
     model: {
@@ -72,6 +116,12 @@ export function UploadPage() {
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [isAnalysing, setIsAnalysing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hasAutoLoadedDemo = useRef(false);
+  const hasHydratedRecoveredFile = useRef(false);
+  const demoCatalog = useMemo(() => {
+    const entries = demoDatasets.length > 0 ? demoDatasets : [];
+    return entries.length > 0 ? entries : [];
+  }, [demoDatasets]);
 
   const domains = [
     { value: 'general', label: 'General' },
@@ -83,42 +133,82 @@ export function UploadPage() {
   ];
 
   useEffect(() => {
-    setSelectedDomain(activePreset?.domain ?? 'general');
-  }, [activePreset?.domain]);
+    if (domain) setSelectedDomain(domain);
+  }, [domain]);
 
-  // File drop handler — calls /api/preview
-  const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    const file = acceptedFiles[0];
-    if (!file) return;
+  useEffect(() => {
+    let cancelled = false;
+    void fetchDemoDatasetCatalog().then((items) => {
+      if (!cancelled) setDemoDatasets(items);
+    }).catch(() => {
+      if (!cancelled) setDemoDatasets([]);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function loadPreviewFromFile(fileToPreview: File, preset?: DemoDatasetCatalogItem | null) {
     setError(null);
-    setLocalFile(file);
-    setFileName(file.name);
+    setLocalFile(fileToPreview);
+    setFileName(fileToPreview.name);
+    setFile(fileToPreview);
     setIsPreviewing(true);
     setColumns([]);
     setPreviewRows([]);
 
     try {
-      const preview = await previewCSV(file);
+      const preview = await previewCSV(fileToPreview);
       setFileInfo(preview.shape);
       setAvailableColumns(preview.columns);
-      setColumns(
-        preview.columns.map((name) => ({
-          name,
-          role: '' as ColumnRole,
-          sample: preview.preview
-            .map((r) => String(r[name] ?? ''))
-            .slice(0, 3),
-        }))
-      );
+      setColumns(buildColumns(preview.columns, preview.preview, preset));
       setPreviewRows(preview.preview);
+      setSelectedDomain(preset?.domain ?? domain ?? 'general');
+      setTargetColumn(preset?.suggested_target ?? '');
+      setSensitiveColumns(splitColumns(preset?.suggested_sensitive));
+      setDemoDatasetFile(preset?.file ?? null);
     } catch (e) {
       setError(String(e));
       setLocalFile(null);
       setFileName('');
+      setFileInfo(null);
+      setFile(null);
+      setDemoDatasetFile(null);
     } finally {
       setIsPreviewing(false);
     }
-  }, [setAvailableColumns]);
+  }
+
+  useEffect(() => {
+    if (!file || localFile || hasHydratedRecoveredFile.current) return;
+    hasHydratedRecoveredFile.current = true;
+    void loadPreviewFromFile(file, demoDatasetFile ? findDemoPreset(demoCatalog, demoDatasetFile) : null);
+  }, [file, demoCatalog, demoDatasetFile, localFile]);
+
+  useEffect(() => {
+    if (!activePreset || localFile || hasAutoLoadedDemo.current) return;
+    if (demoCatalog.length === 0) return;
+    const fileName = PRESET_DEMO_BY_DOMAIN[activePreset.domain] ?? demoCatalog[0]?.file;
+    const preset = findDemoPreset(demoCatalog, fileName);
+    if (!preset) return;
+    hasAutoLoadedDemo.current = true;
+    void (async () => {
+      try {
+        const demoFile = await loadDemoDatasetFile(preset.file);
+        await loadPreviewFromFile(demoFile, preset);
+      } catch {
+        setError(`Could not load ${preset.name}. Make sure the demo file is available.`);
+      }
+    })();
+  }, [activePreset, demoCatalog, localFile]);
+
+  // File drop handler — calls /api/preview
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+    const file = acceptedFiles[0];
+    if (!file) return;
+    setDemoDatasetFile(null);
+    await loadPreviewFromFile(file, null);
+  }, [setDemoDatasetFile, loadPreviewFromFile]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -142,6 +232,15 @@ export function UploadPage() {
   const protectedCols = columns.filter((c) => c.role === 'protected').map((c) => c.name);
   const canRunAnalysis = !!localFile && !!targetCol && protectedCols.length > 0;
 
+  useEffect(() => {
+    setTargetColumn(targetCol);
+    setSensitiveColumns(protectedCols);
+  }, [targetCol, protectedCols.join('|'), setSensitiveColumns, setTargetColumn]);
+
+  useEffect(() => {
+    if (selectedDomain) setDomain(selectedDomain);
+  }, [selectedDomain, setDomain]);
+
   async function handleRunAnalysis() {
     if (!canRunAnalysis) return;
     setError(null);
@@ -149,6 +248,7 @@ export function UploadPage() {
     try {
       // Store selections in context
       setFile(localFile);
+      setDemoDatasetFile(demoDatasetFile);
       setTargetColumn(targetCol);
       setSensitiveColumns(protectedCols);
       setDomain(selectedDomain);
@@ -169,6 +269,13 @@ export function UploadPage() {
     setFileInfo(null);
     setColumns([]);
     setPreviewRows([]);
+    setFile(null);
+    setDemoDatasetFile(null);
+    setTargetColumn('');
+    setSensitiveColumns([]);
+    setAvailableColumns([]);
+    setAnalysisResult(null);
+    setDomain(activePreset?.domain ?? 'general');
     setError(null);
   }
 
@@ -247,6 +354,38 @@ export function UploadPage() {
           </div>
         )}
 
+        {analysisResult && (
+          <div className="mb-8 rounded-2xl border border-[#D1D5DB] bg-white px-5 py-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-[#6B7280]" style={{ fontFamily: 'Inter, sans-serif' }}>
+                Recovered analysis
+              </div>
+              <div className="mt-1 text-sm font-semibold text-[#111827]" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+                {analysisResult.filename}
+              </div>
+              <p className="mt-1 text-sm text-[#6B7280]" style={{ fontFamily: 'Inter, sans-serif' }}>
+                Your last summary and selections were restored from this session. Re-upload or pick a demo dataset to continue from a fresh file.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                to="/app/analysis"
+                className="inline-flex items-center gap-2 rounded-lg border border-[#E5E7EB] px-3 py-2 text-xs font-medium text-[#374151] hover:border-[#3B82F6] hover:text-[#3B82F6] transition-colors"
+                style={{ fontFamily: 'Inter, sans-serif' }}
+              >
+                Open dashboard
+              </Link>
+              <Link
+                to="/app/analysis/report"
+                className="inline-flex items-center gap-2 rounded-lg border border-[#E5E7EB] px-3 py-2 text-xs font-medium text-[#374151] hover:border-[#D97706] hover:text-[#D97706] transition-colors"
+                style={{ fontFamily: 'Inter, sans-serif' }}
+              >
+                Review report
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* Error banner */}
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
@@ -300,31 +439,28 @@ export function UploadPage() {
                     Or try a demo dataset:
                   </label>
                   <div className="flex flex-col gap-2">
-                    {[
-                      { name: 'COMPAS Recidivism (Criminal Justice)', file: 'compas-scores-two-years.csv' },
-                      { name: 'Adult Income (General/Hiring)', file: 'adult-income.csv' },
-                      { name: 'German Credit (Lending)', file: 'german-credit.csv' },
-                      { name: 'Heart Disease (Healthcare)', file: 'heart-disease.csv' },
-                      { name: 'Student Performance (Education)', file: 'student-performance.csv' },
-                    ].map((demo) => (
+                    {demoCatalog.map((demo) => (
                       <button
                         key={demo.file}
                         onClick={async () => {
                           try {
-                            const res = await fetch(`/datasets/${demo.file}`);
-                            if (!res.ok) throw new Error('Dataset not found');
-                            const blob = await res.blob();
-                            const demoFile = new File([blob], demo.file, { type: 'text/csv' });
-                            await onDrop([demoFile]);
+                            const demoFile = await loadDemoDatasetFile(demo.file);
+                            await loadPreviewFromFile(demoFile, demo);
                           } catch {
                             setError(`Could not load ${demo.name}. Make sure it exists in public/datasets/.`);
                           }
                         }}
-                        className="w-full py-2.5 px-4 rounded-lg border border-[#E5E7EB] text-sm text-left transition-colors hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 flex justify-between items-center"
+                        className="w-full py-3 px-4 rounded-lg border border-[#E5E7EB] text-sm text-left transition-colors hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 flex items-start justify-between gap-3"
                         style={{ fontFamily: 'Inter, sans-serif', color: '#4B5563' }}
                       >
-                        {demo.name}
-                        <ChevronRight size={16} className="text-gray-400" />
+                        <span className="min-w-0">
+                          <span className="block font-medium text-[#111827]">{demo.name}</span>
+                          <span className="mt-1 block text-xs text-[#6B7280]">{demo.description}</span>
+                        </span>
+                        <span className="flex flex-col items-end gap-1 text-[11px] text-[#6B7280] flex-shrink-0">
+                          <ChevronRight size={16} className="text-gray-400" />
+                          <span className="rounded-full bg-[#F3F4F6] px-2 py-0.5 text-[#374151]">{domains.find((d) => d.value === demo.domain)?.label ?? demo.domain}</span>
+                        </span>
                       </button>
                     ))}
                   </div>

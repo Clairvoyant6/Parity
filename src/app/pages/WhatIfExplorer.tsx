@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link } from 'react-router';
 import { Navbar } from '../components/Navbar';
 import { PrimaryButton } from '../components/ui/Button';
 import { Shield, RefreshCw, ChevronLeft, TrendingUp, TrendingDown, Loader2, AlertCircle } from 'lucide-react';
@@ -8,13 +8,7 @@ import { runWhatIf } from '../../services/api';
 import type { WhatIfResponse } from '../../types/analysis';
 
 export function WhatIfExplorer() {
-  const navigate = useNavigate();
   const { analysisResult, file, targetColumn, sensitiveColumns, availableColumns } = useAnalysis();
-
-  // Redirect if no context
-  useEffect(() => {
-    if (!analysisResult) navigate('/app/upload');
-  }, [analysisResult, navigate]);
 
   // Feature selection state
   const allColumns = availableColumns.length > 0 ? availableColumns : [];
@@ -32,11 +26,14 @@ export function WhatIfExplorer() {
     }
   }, [allColumns, selectedFeature, targetColumn]);
 
-  if (!analysisResult) {
+  if (!analysisResult || !file || availableColumns.length === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#F9FAFB' }}>
-        <Loader2 size={32} className="animate-spin text-blue-500" />
-      </div>
+      <RecoverableEmptyState
+        title={!analysisResult ? 'What-If Explorer is not loaded' : 'What-If Explorer needs the source CSV'}
+        body={!analysisResult
+          ? 'Upload a dataset or restore a saved analysis to run counterfactual simulations. The saved summary will be reused if it exists in session storage.'
+          : 'The analysis summary is available, but simulations need the original CSV and column list. Re-upload the file or load a demo dataset to restore the file-backed session.'}
+      />
     );
   }
 
@@ -278,6 +275,35 @@ export function WhatIfExplorer() {
                 </p>
               </div>
             )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RecoverableEmptyState({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="min-h-screen" style={{ background: '#F9FAFB' }}>
+      <Navbar variant="app" />
+      <div className="mx-auto flex min-h-screen max-w-3xl items-center px-6 py-24">
+        <div className="w-full rounded-2xl border border-[#E5E7EB] bg-white p-8">
+          <div className="text-xs font-semibold uppercase tracking-wide text-[#6B7280]" style={{ fontFamily: 'Inter, sans-serif' }}>
+            Recoverable state
+          </div>
+          <h1 className="mt-2 text-2xl font-bold text-[#111827]" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+            {title}
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-[#374151]" style={{ fontFamily: 'Inter, sans-serif' }}>
+            {body}
+          </p>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link to="/app/upload" className="inline-flex items-center rounded-lg bg-[#2563EB] px-4 py-2 text-sm font-medium text-white hover:bg-[#1D4ED8]" style={{ fontFamily: 'Inter, sans-serif' }}>
+              Go to upload
+            </Link>
+            <Link to="/app/analysis" className="inline-flex items-center rounded-lg border border-[#E5E7EB] px-4 py-2 text-sm font-medium text-[#374151] hover:border-[#3B82F6] hover:text-[#3B82F6]" style={{ fontFamily: 'Inter, sans-serif' }}>
+              Dashboard
+            </Link>
           </div>
         </div>
       </div>

@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { useState } from 'react';
+import { Link } from 'react-router';
 import { Navbar } from '../components/Navbar';
 import { PrimaryButton } from '../components/ui/Button';
 import { ChevronLeft, Download, Code, Copy, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
@@ -7,20 +7,13 @@ import { useAnalysis } from '../../context/AnalysisContext';
 import { exportReport, triggerDownload } from '../../services/api';
 
 export function ReportExport() {
-  const navigate = useNavigate();
   const { analysisResult, file, targetColumn, sensitiveColumns, domain } = useAnalysis();
   const [copied, setCopied] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
-  useEffect(() => {
-    if (!analysisResult) navigate('/app/upload');
-  }, [analysisResult, navigate]);
-
   if (!analysisResult) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#F9FAFB' }}>
-        <Loader2 size={32} className="animate-spin text-blue-500" />
-      </div>
+      <RecoveryEmptyState />
     );
   }
 
@@ -167,6 +160,12 @@ export function ReportExport() {
             </PrimaryButton>
           </div>
         </div>
+
+        {!file && (
+          <div className="mb-6 rounded-xl border border-[#FDE68A] bg-[#FFFBEB] px-4 py-3 text-sm text-[#92400E]" style={{ fontFamily: 'Inter, sans-serif' }}>
+            The saved analysis summary is available, but the source CSV is not in memory. Re-upload the original file or load a demo dataset to re-enable PDF export.
+          </div>
+        )}
 
         {/* Report Preview */}
         <div className="bg-white rounded-2xl border border-[#E5E7EB] overflow-hidden shadow-sm mb-8">
@@ -322,5 +321,34 @@ function LogoIcon() {
       <path d="M6 15.5 Q8.5 13 11 15.5" stroke="white" strokeWidth="1.5" fill="none" strokeLinecap="round" />
       <path d="M17 15.5 Q19.5 13 22 15.5" stroke="white" strokeWidth="1.5" fill="none" strokeLinecap="round" />
     </svg>
+  );
+}
+
+function RecoveryEmptyState() {
+  return (
+    <div className="min-h-screen" style={{ background: '#F9FAFB' }}>
+      <Navbar variant="app" />
+      <div className="mx-auto flex min-h-screen max-w-3xl items-center px-6 py-24">
+        <div className="w-full rounded-2xl border border-[#E5E7EB] bg-white p-8">
+          <div className="text-xs font-semibold uppercase tracking-wide text-[#6B7280]" style={{ fontFamily: 'Inter, sans-serif' }}>
+            Recoverable state
+          </div>
+          <h1 className="mt-2 text-2xl font-bold text-[#111827]" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+            Report export is not loaded
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-[#374151]" style={{ fontFamily: 'Inter, sans-serif' }}>
+            Open a saved analysis or upload a CSV to recover the report flow. The summary can be restored from session storage, and a demo dataset will bring back PDF export when the source file is available again.
+          </p>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link to="/app/upload" className="inline-flex items-center rounded-lg bg-[#2563EB] px-4 py-2 text-sm font-medium text-white hover:bg-[#1D4ED8]" style={{ fontFamily: 'Inter, sans-serif' }}>
+              Go to upload
+            </Link>
+            <Link to="/app/analysis" className="inline-flex items-center rounded-lg border border-[#E5E7EB] px-4 py-2 text-sm font-medium text-[#374151] hover:border-[#3B82F6] hover:text-[#3B82F6]" style={{ fontFamily: 'Inter, sans-serif' }}>
+              Dashboard
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

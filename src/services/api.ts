@@ -2,9 +2,95 @@
 // Single source of truth for all backend API calls.
 // Pages import from here — never call fetch() directly.
 
-import type { AnalyzeResponse, PreviewResponse, WhatIfResponse } from '../types/analysis';
+import type {
+  AnalyzeResponse,
+  DemoDatasetCatalogItem,
+  DemoDatasetCatalogResponse,
+  PreviewResponse,
+  WhatIfResponse,
+} from '../types/analysis';
 
 const BASE = '/api';
+const DEMO_DATASET_BASE = '/datasets';
+
+const DEFAULT_DEMO_DATASETS: DemoDatasetCatalogItem[] = [
+  {
+    name: 'COMPAS Recidivism',
+    description: 'Criminal justice risk scores with known racial disparity patterns.',
+    domain: 'criminal_justice',
+    file: 'compas-scores-two-years.csv',
+    suggested_target: 'two_year_recid',
+    suggested_sensitive: ['race', 'sex'],
+  },
+  {
+    name: 'Adult Income',
+    description: 'Census income prediction dataset for hiring and access audits.',
+    domain: 'hiring',
+    file: 'adult-income.csv',
+    suggested_target: 'income_over_50k',
+    suggested_sensitive: ['sex', 'race'],
+  },
+  {
+    name: 'German Credit',
+    description: 'Loan approval dataset for credit-risk fairness checks.',
+    domain: 'lending',
+    file: 'german-credit.csv',
+    suggested_target: 'approved',
+    suggested_sensitive: ['foreign_worker', 'age_group'],
+  },
+  {
+    name: 'Heart Disease',
+    description: 'Healthcare risk scoring dataset with demographic attributes.',
+    domain: 'healthcare',
+    file: 'heart-disease.csv',
+    suggested_target: 'high_risk',
+    suggested_sensitive: ['sex', 'age'],
+  },
+  {
+    name: 'Student Performance',
+    description: 'Education outcome dataset for socioeconomic fairness checks.',
+    domain: 'education',
+    file: 'student-performance.csv',
+    suggested_target: 'passed',
+    suggested_sensitive: ['socioeconomic_status'],
+  },
+];
+
+function normalizeSensitiveColumns(value: string | string[] | undefined): string[] {
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string') {
+    return value.split(',').map((item) => item.trim()).filter(Boolean);
+  }
+  return [];
+}
+
+function normalizeCatalogEntry(entry: DemoDatasetCatalogResponse['datasets'][number]): DemoDatasetCatalogItem {
+  const file = entry.file ?? entry.filename;
+  const suggestedTarget = entry.suggested_target ?? entry.suggested_target_column;
+  const suggestedSensitive = entry.suggested_sensitive ?? entry.suggested_sensitive_columns;
+
+  return {
+    name: entry.name,
+    description: entry.description,
+    domain: entry.domain,
+    file: file ?? '',
+    suggested_target: suggestedTarget,
+    suggested_sensitive: normalizeSensitiveColumns(suggestedSensitive),
+  };
+}
+
+function mergeCatalogEntries(entries: DemoDatasetCatalogItem[]): DemoDatasetCatalogItem[] {
+  const map = new Map<string, DemoDatasetCatalogItem>();
+  for (const item of DEFAULT_DEMO_DATASETS) {
+    map.set(item.file, item);
+  }
+  for (const item of entries) {
+    if (item.file) {
+      map.set(item.file, { ...map.get(item.file), ...item });
+    }
+  }
+  return Array.from(map.values());
+}
 
 /** Preview CSV columns + first 5 rows without running full analysis */
 export async function previewCSV(file: File): Promise<PreviewResponse> {
@@ -16,6 +102,29 @@ export async function previewCSV(file: File): Promise<PreviewResponse> {
     throw new Error(err.detail ?? 'Preview failed');
   }
   return res.json();
+}
+
+/** Fetch demo dataset catalog from the backend, with local fallback metadata. */
+export async function fetchDemoDatasetCatalog(): Promise<DemoDatasetCatalogItem[]> {
+  try {
+    const res = await fetch(`${BASE}/datasets`);
+    if (!res.ok) throw new Error('Dataset catalog unavailable');
+    const payload = (await res.json()) as DemoDatasetCatalogResponse;
+    const datasets = Array.isArray(payload.datasets) ? payload.datasets.map(normalizeCatalogEntry) : [];
+    return mergeCatalogEntries(datasets);
+  } catch {
+    return DEFAULT_DEMO_DATASETS;
+  }
+}
+
+/** Fetch a bundled demo CSV file as a File object. */
+export async function loadDemoDatasetFile(fileName: string): Promise<File> {
+  const res = await fetch(`${DEMO_DATASET_BASE}/${fileName}`);
+  if (!res.ok) {
+    throw new Error(`Demo dataset not found: ${fileName}`);
+  }
+  const blob = await res.blob();
+  return new File([blob], fileName, { type: 'text/csv' });
 }
 
 /** Run full bias analysis on a CSV file */

@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { useState } from 'react';
+import { Link } from 'react-router';
 import { Navbar } from '../components/Navbar';
-import { ChevronLeft, Loader2 } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import { useAnalysis } from '../../context/AnalysisContext';
 
 function getHeatColor(val: number): string {
@@ -16,19 +16,12 @@ function getTextColor(val: number): string {
 }
 
 export function BiasDetails() {
-  const navigate = useNavigate();
   const { analysisResult, sensitiveColumns } = useAnalysis();
   const [selectedCell, setSelectedCell] = useState<{ feature: string; attr: string; corr: number } | null>(null);
 
-  useEffect(() => {
-    if (!analysisResult) navigate('/app/upload');
-  }, [analysisResult, navigate]);
-
   if (!analysisResult) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#F9FAFB' }}>
-        <Loader2 size={32} className="animate-spin text-blue-500" />
-      </div>
+      <RecoveryEmptyState />
     );
   }
 
@@ -250,6 +243,35 @@ export function BiasDetails() {
                 ))}
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RecoveryEmptyState() {
+  return (
+    <div className="min-h-screen" style={{ background: '#F9FAFB' }}>
+      <Navbar variant="app" />
+      <div className="mx-auto flex min-h-screen max-w-3xl items-center px-6 py-24">
+        <div className="w-full rounded-2xl border border-[#E5E7EB] bg-white p-8">
+          <div className="text-xs font-semibold uppercase tracking-wide text-[#6B7280]" style={{ fontFamily: 'Inter, sans-serif' }}>
+            Recoverable state
+          </div>
+          <h1 className="mt-2 text-2xl font-bold text-[#111827]" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+            Bias drilldown is not loaded
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-[#374151]" style={{ fontFamily: 'Inter, sans-serif' }}>
+            Open a saved analysis or upload a CSV to rebuild the drilldown. When a result exists in session storage, this page will render the saved proxy analysis instead of bouncing you away.
+          </p>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link to="/app/upload" className="inline-flex items-center rounded-lg bg-[#2563EB] px-4 py-2 text-sm font-medium text-white hover:bg-[#1D4ED8]" style={{ fontFamily: 'Inter, sans-serif' }}>
+              Go to upload
+            </Link>
+            <Link to="/app/analysis" className="inline-flex items-center rounded-lg border border-[#E5E7EB] px-4 py-2 text-sm font-medium text-[#374151] hover:border-[#3B82F6] hover:text-[#3B82F6]" style={{ fontFamily: 'Inter, sans-serif' }}>
+              Dashboard
+            </Link>
           </div>
         </div>
       </div>

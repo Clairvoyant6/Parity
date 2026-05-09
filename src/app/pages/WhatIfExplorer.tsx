@@ -2,10 +2,13 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router';
 import { Navbar } from '../components/Navbar';
 import { PrimaryButton } from '../components/ui/Button';
-import { Shield, RefreshCw, ChevronLeft, TrendingUp, TrendingDown, Loader2, AlertCircle } from 'lucide-react';
+import { Shield, RefreshCw, ChevronLeft, TrendingUp, TrendingDown, Loader2, AlertCircle, Sparkles, History, BarChart3 } from 'lucide-react';
+import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useAnalysis } from '../../context/AnalysisContext';
 import { runWhatIf } from '../../services/api';
 import type { WhatIfResponse } from '../../types/analysis';
+
+type Scenario = { feature: string; original: string; replacement: string; label: string };
 
 export function WhatIfExplorer() {
   const { analysisResult, file, targetColumn, sensitiveColumns, availableColumns } = useAnalysis();
@@ -17,6 +20,7 @@ export function WhatIfExplorer() {
   const [newValue, setNewValue] = useState('');
   const [isRunning, setIsRunning] = useState(false);
   const [whatIfResult, setWhatIfResult] = useState<WhatIfResponse | null>(null);
+  const [history, setHistory] = useState<Array<WhatIfResponse & { label: string }>>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -41,6 +45,32 @@ export function WhatIfExplorer() {
   const impact = whatIfResult?.impact;
   const origScore = whatIfResult?.original_risk_score ?? analysisResult.results.bias_risk_score;
   const modScore = whatIfResult?.modified_risk_score;
+  const scenarioPresets: Scenario[] = [
+    { feature: sensitiveColumns[0] ?? allColumns.find((c) => c !== targetColumn) ?? '', original: 'Female', replacement: 'Male', label: 'Protected swap' },
+    { feature: sensitiveColumns[1] ?? sensitiveColumns[0] ?? allColumns.find((c) => c !== targetColumn) ?? '', original: 'Non-White', replacement: 'White', label: 'Group parity check' },
+    { feature: allColumns.find((c) => !sensitiveColumns.includes(c) && c !== targetColumn) ?? allColumns.find((c) => c !== targetColumn) ?? '', original: '0', replacement: '1', label: 'Operational threshold' },
+  ].filter((s, index, list) => s.feature && list.findIndex((item) => item.label === s.label) === index);
+
+  const metricDeltas = whatIfResult ? [
+    {
+      label: 'Risk score',
+      before: whatIfResult.original_risk_score,
+      after: whatIfResult.modified_risk_score,
+      lowerIsBetter: true,
+    },
+    {
+      label: 'Disparate impact',
+      before: whatIfResult.original_metrics.disparate_impact_ratio ?? whatIfResult.original_metrics.disparate_impact_avg ?? 0,
+      after: whatIfResult.modified_metrics.disparate_impact_ratio ?? whatIfResult.modified_metrics.disparate_impact_avg ?? 0,
+      lowerIsBetter: false,
+    },
+    {
+      label: 'Parity diff',
+      before: whatIfResult.original_metrics.demographic_parity_difference ?? whatIfResult.original_metrics.demographic_parity_avg ?? 0,
+      after: whatIfResult.modified_metrics.demographic_parity_difference ?? whatIfResult.modified_metrics.demographic_parity_avg ?? 0,
+      lowerIsBetter: true,
+    },
+  ] : [];
 
   async function handleRunSimulation() {
     if (!file || !selectedFeature || !originalValue || !newValue) return;
@@ -53,6 +83,10 @@ export function WhatIfExplorer() {
         selectedFeature, originalValue, newValue
       );
       setWhatIfResult(result);
+      setHistory((prev) => [
+        { ...result, label: `${selectedFeature}: ${originalValue} -> ${newValue}` },
+        ...prev,
+      ].slice(0, 5));
     } catch (e) {
       setError(String(e));
     } finally {
@@ -64,6 +98,14 @@ export function WhatIfExplorer() {
     setSelectedFeature(allColumns.find((col) => col !== targetColumn) ?? '');
     setOriginalValue('');
     setNewValue('');
+    setWhatIfResult(null);
+    setError(null);
+  }
+
+  function applyScenario(scenario: Scenario) {
+    setSelectedFeature(scenario.feature);
+    setOriginalValue(scenario.original);
+    setNewValue(scenario.replacement);
     setWhatIfResult(null);
     setError(null);
   }
@@ -85,9 +127,23 @@ export function WhatIfExplorer() {
         <h1 className="mb-2" style={{ fontFamily: 'DM Sans, sans-serif', fontWeight: 700, fontSize: '1.75rem', color: '#111827' }}>
           What-If Explorer
         </h1>
-        <p className="text-sm text-[#6B7280] mb-8" style={{ fontFamily: 'Inter, sans-serif' }}>
-          Change a feature value across all rows and see how the bias risk score changes. Make bias visible.
-        </p>
+        <div className="mb-8 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <p className="max-w-2xl text-sm text-[#6B7280]" style={{ fontFamily: 'Inter, sans-serif' }}>
+            Change a feature value across all rows, compare metric deltas, and keep a short scenario history for mitigation review.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {scenarioPresets.map((scenario) => (
+              <button
+                key={scenario.label}
+                onClick={() => applyScenario(scenario)}
+                className="inline-flex items-center gap-2 rounded-lg border border-[#D8E3F8] bg-white px-3 py-2 text-xs font-medium text-[#374151] shadow-sm transition-colors hover:border-[#3B82F6] hover:text-[#2563EB]"
+                style={{ fontFamily: 'Inter, sans-serif' }}
+              >
+                <Sparkles size={12} /> {scenario.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
@@ -176,6 +232,17 @@ export function WhatIfExplorer() {
                   The backend will replace all occurrences of the original value in the <strong>{selectedFeature}</strong> column and re-run the full bias analysis.
                 </p>
 
+                <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] p-4">
+                  <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#6B7280]" style={{ fontFamily: 'Inter, sans-serif' }}>
+                    <BarChart3 size={13} /> Scenario preview
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-xs">
+                    <PreviewChip label="Feature" value={selectedFeature || '-'} />
+                    <PreviewChip label="From" value={originalValue || '-'} />
+                    <PreviewChip label="To" value={newValue || '-'} />
+                  </div>
+                </div>
+
                 <PrimaryButton
                   className="w-full justify-center"
                   onClick={handleRunSimulation}
@@ -189,6 +256,26 @@ export function WhatIfExplorer() {
                 </PrimaryButton>
               </div>
             </div>
+
+            {history.length > 0 && (
+              <div className="mt-6 rounded-2xl border border-[#E5E7EB] bg-white p-5">
+                <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-[#111827]" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+                  <History size={16} /> Scenario history
+                </div>
+                <div className="space-y-2">
+                  {history.map((item, index) => (
+                    <button
+                      key={`${item.label}-${index}`}
+                      onClick={() => setWhatIfResult(item)}
+                      className="w-full rounded-lg border border-[#F3F4F6] bg-[#FAFAFA] px-3 py-2 text-left transition-colors hover:border-[#BFDBFE] hover:bg-[#EFF6FF]"
+                    >
+                      <div className="text-xs font-medium text-[#374151]" style={{ fontFamily: 'Inter, sans-serif' }}>{item.label}</div>
+                      <div className="mt-1 font-mono text-xs text-[#6B7280]">{item.original_risk_score.toFixed(1)} {'->'} {item.modified_risk_score.toFixed(1)} ({item.impact.toLowerCase()})</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Right: Results */}
@@ -266,6 +353,30 @@ export function WhatIfExplorer() {
               </div>
             )}
 
+            {whatIfResult && (
+              <div className="bg-white rounded-2xl border border-[#E5E7EB] p-6" style={{ animation: 'fadeInUp 0.5s ease 0.15s both' }}>
+                <h3 className="mb-4" style={{ fontFamily: 'DM Sans, sans-serif', fontWeight: 600, fontSize: '1rem', color: '#111827' }}>
+                  Before / After Metric Graph
+                </h3>
+                <ResponsiveContainer width="100%" height={260}>
+                  <BarChart data={metricDeltas.flatMap((m) => [
+                    { metric: m.label, state: 'Before', value: Number(m.before) },
+                    { metric: m.label, state: 'After', value: Number(m.after) },
+                  ])}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
+                    <XAxis dataKey="metric" tick={{ fontSize: 11, fill: '#6B7280' }} />
+                    <YAxis tick={{ fontSize: 11, fill: '#9CA3AF' }} />
+                    <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid #E5E7EB', fontFamily: 'Inter' }} />
+                    <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                      {metricDeltas.flatMap((m) => ['Before', 'After'].map((state) => (
+                        <Cell key={`${m.label}-${state}`} fill={state === 'Before' ? '#94A3B8' : improvedColor(m.before, m.after, m.lowerIsBetter)} />
+                      )))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+
             {/* Empty state */}
             {!whatIfResult && !isRunning && (
               <div className="bg-white rounded-2xl border border-dashed border-[#E5E7EB] p-12 flex flex-col items-center justify-center text-center">
@@ -280,6 +391,20 @@ export function WhatIfExplorer() {
       </div>
     </div>
   );
+}
+
+function PreviewChip({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-[#E5E7EB] bg-white p-3">
+      <div className="text-[10px] uppercase tracking-wide text-[#9CA3AF]">{label}</div>
+      <div className="mt-1 truncate font-mono text-xs text-[#374151]">{value}</div>
+    </div>
+  );
+}
+
+function improvedColor(before: number, after: number, lowerIsBetter: boolean) {
+  const improved = lowerIsBetter ? after <= before : after >= before;
+  return improved ? '#10B981' : '#EF4444';
 }
 
 function RecoverableEmptyState({ title, body }: { title: string; body: string }) {

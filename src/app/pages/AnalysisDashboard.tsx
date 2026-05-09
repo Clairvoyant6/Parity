@@ -1,13 +1,29 @@
-import { useState } from 'react';
+import { useState, type ComponentType } from 'react';
 import { Link } from 'react-router';
 import { Navbar } from '../components/Navbar';
 import { ProgressRing } from '../components/ui/ProgressRing';
 import { PrimaryButton } from '../components/ui/Button';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell,
-  ResponsiveContainer, BarChart as HBarChart,
+  ResponsiveContainer, BarChart as HBarChart, RadarChart, PolarGrid, PolarAngleAxis, Radar,
 } from 'recharts';
-import { Download, ChevronRight, AlertTriangle, Info, Loader2 } from 'lucide-react';
+import {
+  Activity,
+  ArrowRight,
+  Brain,
+  Download,
+  ChevronRight,
+  AlertTriangle,
+  FileCheck2,
+  Gauge,
+  Info,
+  Layers3,
+  Loader2,
+  Network,
+  ShieldAlert,
+  Sparkles,
+  Wand2,
+} from 'lucide-react';
 import { useAnalysis } from '../../context/AnalysisContext';
 import { exportReport, triggerDownload } from '../../services/api';
 
@@ -15,6 +31,7 @@ export function AnalysisDashboard() {
   const { analysisResult, file, targetColumn, sensitiveColumns, domain } = useAnalysis();
   const [showExplanation, setShowExplanation] = useState(false);
   const [showGroupChartHelp, setShowGroupChartHelp] = useState(false);
+  const [selectedMetricLabel, setSelectedMetricLabel] = useState('Disparate Impact');
   const [isExporting, setIsExporting] = useState(false);
 
   if (!analysisResult) {
@@ -31,6 +48,14 @@ export function AnalysisDashboard() {
       return groups.map((g) => ({
         group: `${g.group_name}`,
         rate: Math.round((g.approval_rate ?? 0) * 100),
+        attr,
+      }));
+    }
+    const groupedRates = (groups as { groups?: Record<string, Record<string, unknown>> }).groups;
+    if (groupedRates && typeof groupedRates === 'object') {
+      return Object.entries(groupedRates).map(([group, stats]) => ({
+        group,
+        rate: Math.round(Number(stats.positive_rate ?? stats.prediction_rate ?? 0) * 100),
         attr,
       }));
     }
@@ -108,6 +133,7 @@ export function AnalysisDashboard() {
       detail: ppDiff === undefined ? 'Not reported by backend' : ppDiff > 0.1 ? 'Precision gap needs review' : 'Within threshold',
     },
   ];
+  const selectedMetric = metrics.find((metric) => metric.label === selectedMetricLabel) ?? metrics[0];
 
   const unavailableMetrics = metrics.filter((m) => m.status === 'unavailable');
   const riskMetrics = metrics.filter((m) => m.status === 'risk');
@@ -124,12 +150,51 @@ export function AnalysisDashboard() {
     ].filter(Boolean);
     return `The run shows ${items.join('; ')}.`;
   })();
-  const nextActions = [
-    di < 0.8 ? 'Inspect the affected groups and consider reweighting or threshold adjustment.' : null,
-    proxyCount > 0 ? 'Open Bias Details to review the proxy heatmap before export.' : null,
-    unavailableMetrics.length > 0 ? 'Fill the missing metric gaps before sign-off.' : null,
-    'Run a What-If simulation to test a mitigation idea.',
-  ].filter((item, index, list) => Boolean(item) && list.indexOf(item) === index).slice(0, 3) as string[];
+  const groupWatchlist = groupChartData
+    .map((group) => ({
+      ...group,
+      gap: Math.max(0, maxRate - group.rate),
+      severity: group.rate / maxRate < 0.6 ? 'risk' : group.rate / maxRate < 0.8 ? 'caution' : 'fair',
+    }))
+    .sort((a, b) => b.gap - a.gap)
+    .slice(0, 5);
+  const radarData = metrics.map((metric) => {
+    const numericValue = Number(metric.value);
+    const score = metric.status === 'unavailable'
+      ? 35
+      : metric.label === 'Disparate Impact'
+        ? Math.min(100, Math.max(0, numericValue * 100))
+        : Math.min(100, Math.max(0, 100 - numericValue * 100));
+    return { metric: metric.label.replace('Demographic ', 'Demo. ').replace('Predictive ', 'Pred. '), score };
+  });
+  const featureRiskList = shapData.map((feature, index) => ({
+    ...feature,
+    rank: index + 1,
+    priority: feature.isProxy ? 'Proxy review' : index < 3 ? 'Top driver' : 'Monitor',
+  }));
+  const workflowSteps = [
+    {
+      title: 'Inspect root cause',
+      body: proxyCount > 0 ? 'Open the drilldown to review protected proxy relationships.' : 'Review feature importance and confirm no proxy signals are hidden.',
+      to: '/app/analysis/details',
+      icon: Network,
+      tone: proxyCount > 0 ? 'risk' : 'fair',
+    },
+    {
+      title: 'Simulate mitigation',
+      body: 'Run counterfactual scenarios and compare before/after fairness deltas.',
+      to: '/app/analysis/whatif',
+      icon: Wand2,
+      tone: 'caution',
+    },
+    {
+      title: 'Export evidence',
+      body: 'Generate a report for compliance, model risk, and stakeholder review.',
+      to: '/app/analysis/report',
+      icon: FileCheck2,
+      tone: violations > 0 ? 'risk' : 'fair',
+    },
+  ];
 
   // ── Export PDF handler ─────────────────────────────────────────────
   async function handleExport() {
@@ -183,58 +248,108 @@ export function AnalysisDashboard() {
           </div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,0.95fr)] mb-8">
-          <section className="rounded-2xl border border-[#E5E7EB] bg-white p-6">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] mb-8">
+          <section className="relative overflow-hidden rounded-2xl border border-[#D8E3F8] bg-[#0F172A] p-6 text-white shadow-xl shadow-blue-950/10">
+            <div className="absolute inset-0 opacity-40" style={{ background: 'radial-gradient(circle at 18% 20%, rgba(59,130,246,0.45), transparent 28%), radial-gradient(circle at 88% 12%, rgba(16,185,129,0.22), transparent 30%)' }} />
+            <div className="relative">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="text-xs font-semibold uppercase tracking-wide text-[#6B7280]" style={{ fontFamily: 'Inter, sans-serif' }}>
-                  Executive summary
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[#BFDBFE]" style={{ fontFamily: 'Inter, sans-serif' }}>
+                  <Sparkles size={12} /> Audit command center
                 </div>
-                <h2 className="mt-1 text-lg font-semibold text-[#111827]" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+                <h2 className="mt-3 text-2xl font-semibold text-white" style={{ fontFamily: 'DM Sans, sans-serif' }}>
                   What this run says
                 </h2>
               </div>
               <span
                 className="text-xs font-medium px-2.5 py-1 rounded-full"
                 style={{
-                  backgroundColor: violations > 0 ? '#FEF2F2' : proxyCount > 0 ? '#FFFBEB' : '#ECFDF5',
-                  color: violations > 0 ? '#DC2626' : proxyCount > 0 ? '#D97706' : '#059669',
+                  backgroundColor: violations > 0 ? 'rgba(239,68,68,0.15)' : proxyCount > 0 ? 'rgba(245,158,11,0.15)' : 'rgba(16,185,129,0.15)',
+                  color: violations > 0 ? '#FECACA' : proxyCount > 0 ? '#FDE68A' : '#A7F3D0',
+                  border: `1px solid ${violations > 0 ? 'rgba(239,68,68,0.28)' : proxyCount > 0 ? 'rgba(245,158,11,0.28)' : 'rgba(16,185,129,0.28)'}`,
                 }}
               >
                 {violations > 0 ? 'Mitigation required' : proxyCount > 0 ? 'Review recommended' : 'Ready'}
               </span>
             </div>
-            <p className="mt-3 text-sm leading-6 text-[#374151]" style={{ fontFamily: 'Inter, sans-serif' }}>
+            <p className="mt-3 text-sm leading-6 text-[#CBD5E1]" style={{ fontFamily: 'Inter, sans-serif' }}>
               {executiveSummary}
             </p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              <MiniSummary label="Risk score" value={`${r.bias_risk_score}/100`} note={r.risk_level} />
-              <MiniSummary label="Metrics reported" value={`${metrics.length - unavailableMetrics.length}/${metrics.length}`} note="Live from backend" />
-              <MiniSummary label="Proxy flags" value={String(proxyCount)} note={proxyCount > 0 ? 'Needs review' : 'None detected'} />
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <CommandSummary icon={Gauge} label="Risk score" value={`${r.bias_risk_score}/100`} note={r.risk_level} />
+              <CommandSummary icon={Activity} label="Metrics reported" value={`${metrics.length - unavailableMetrics.length}/${metrics.length}`} note="Backend evidence" />
+              <CommandSummary icon={ShieldAlert} label="Proxy flags" value={String(proxyCount)} note={proxyCount > 0 ? 'Needs review' : 'None detected'} />
+            </div>
             </div>
           </section>
 
           <aside className="rounded-2xl border border-[#E5E7EB] bg-white p-6">
-            <div className="text-xs font-semibold uppercase tracking-wide text-[#6B7280]" style={{ fontFamily: 'Inter, sans-serif' }}>
-              Next actions
+            <div className="flex items-center justify-between gap-4">
+              <div className="text-xs font-semibold uppercase tracking-wide text-[#6B7280]" style={{ fontFamily: 'Inter, sans-serif' }}>
+                Workflow
+              </div>
+              <span className="text-xs text-[#9CA3AF]">Connected actions</span>
             </div>
-            <ul className="mt-3 space-y-3">
-              {nextActions.map((item) => (
-                <li key={item} className="flex gap-3 rounded-xl border border-[#F3F4F6] bg-[#FAFAFA] px-3 py-2">
-                  <span className="mt-1 h-2 w-2 rounded-full bg-[#2563EB] flex-shrink-0" />
-                  <span className="text-sm text-[#374151]" style={{ fontFamily: 'Inter, sans-serif' }}>{item}</span>
-                </li>
+            <div className="mt-4 space-y-3">
+              {workflowSteps.map((step) => (
+                <WorkflowLink key={step.title} {...step} />
               ))}
-            </ul>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Link to="/app/analysis/whatif" className="text-xs font-medium rounded-lg border border-[#E5E7EB] px-3 py-2 text-[#374151] hover:border-[#10B981] hover:text-[#10B981] transition-colors" style={{ fontFamily: 'Inter, sans-serif' }}>
-                Open What-If
-              </Link>
-              <Link to="/app/analysis/details" className="text-xs font-medium rounded-lg border border-[#E5E7EB] px-3 py-2 text-[#374151] hover:border-[#3B82F6] hover:text-[#3B82F6] transition-colors" style={{ fontFamily: 'Inter, sans-serif' }}>
-                View drilldown
-              </Link>
             </div>
           </aside>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr] mb-8">
+          <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-[#6B7280]" style={{ fontFamily: 'Inter, sans-serif' }}>Metric focus</div>
+                <h2 className="mt-1 text-lg font-semibold text-[#111827]" style={{ fontFamily: 'DM Sans, sans-serif' }}>{selectedMetric.label}</h2>
+              </div>
+              <span className="rounded-full px-3 py-1 text-xs font-medium" style={{
+                backgroundColor: selectedMetric.status === 'risk' ? '#FEF2F2' : selectedMetric.status === 'caution' ? '#FFFBEB' : selectedMetric.status === 'unavailable' ? '#F3F4F6' : '#ECFDF5',
+                color: selectedMetric.status === 'risk' ? '#DC2626' : selectedMetric.status === 'caution' ? '#D97706' : selectedMetric.status === 'unavailable' ? '#6B7280' : '#047857',
+              }}>{selectedMetric.status}</span>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <FocusMetric label="Current value" value={selectedMetric.value} />
+              <FocusMetric label="Target" value={selectedMetric.threshold.replace('Target: ', '').replace('Max gap target: ', '').replace('Precision gap target: ', '')} />
+            </div>
+            <p className="mt-4 text-sm leading-6 text-[#6B7280]" style={{ fontFamily: 'Inter, sans-serif' }}>{selectedMetric.detail}</p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              {metrics.map((metric) => (
+                <button
+                  key={metric.label}
+                  onClick={() => setSelectedMetricLabel(metric.label)}
+                  className="rounded-lg border px-3 py-2 text-xs font-medium transition-colors"
+                  style={{
+                    borderColor: selectedMetric.label === metric.label ? '#3B82F6' : '#E5E7EB',
+                    backgroundColor: selectedMetric.label === metric.label ? '#EFF6FF' : '#FFFFFF',
+                    color: selectedMetric.label === metric.label ? '#2563EB' : '#374151',
+                    fontFamily: 'Inter, sans-serif',
+                  }}
+                >
+                  {metric.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-[#6B7280]" style={{ fontFamily: 'Inter, sans-serif' }}>Fairness posture</div>
+                <h2 className="mt-1 text-lg font-semibold text-[#111827]" style={{ fontFamily: 'DM Sans, sans-serif' }}>Metric coverage radar</h2>
+              </div>
+              <Layers3 size={18} className="text-[#2563EB]" />
+            </div>
+            <ResponsiveContainer width="100%" height={220}>
+              <RadarChart data={radarData}>
+                <PolarGrid stroke="#E5E7EB" />
+                <PolarAngleAxis dataKey="metric" tick={{ fontSize: 11, fill: '#6B7280' }} />
+                <Radar dataKey="score" stroke="#2563EB" fill="#3B82F6" fillOpacity={0.22} />
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
 
         {/* Score + Metric cards */}
@@ -251,6 +366,8 @@ export function AnalysisDashboard() {
                 status={m.status}
                 threshold={m.threshold}
                 detail={m.detail}
+                selected={selectedMetric.label === m.label}
+                onSelect={() => setSelectedMetricLabel(m.label)}
               />
             ))}
           </div>
@@ -444,6 +561,42 @@ export function AnalysisDashboard() {
           </div>
         </div>
 
+        <div className="grid gap-6 lg:grid-cols-[1fr_1fr] mb-8">
+          <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6">
+            <div className="mb-5 flex items-center justify-between">
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-[#6B7280]" style={{ fontFamily: 'Inter, sans-serif' }}>Group watchlist</div>
+                <h2 className="mt-1 text-lg font-semibold text-[#111827]" style={{ fontFamily: 'DM Sans, sans-serif' }}>Largest parity gaps</h2>
+              </div>
+              <Link to="/app/analysis/details" className="text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8]">Open drilldown</Link>
+            </div>
+            <div className="space-y-3">
+              {groupWatchlist.length > 0 ? groupWatchlist.map((group) => (
+                <GroupWatchRow key={`${group.attr}-${group.group}`} group={group.group} attr={group.attr} rate={group.rate} gap={group.gap} severity={group.severity as 'risk' | 'caution' | 'fair'} />
+              )) : (
+                <div className="rounded-xl border border-dashed border-[#E5E7EB] p-5 text-sm text-[#9CA3AF]">No group comparison data available.</div>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6">
+            <div className="mb-5 flex items-center justify-between">
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-[#6B7280]" style={{ fontFamily: 'Inter, sans-serif' }}>Feature risk inspector</div>
+                <h2 className="mt-1 text-lg font-semibold text-[#111827]" style={{ fontFamily: 'DM Sans, sans-serif' }}>Top model drivers</h2>
+              </div>
+              <Brain size={18} className="text-[#2563EB]" />
+            </div>
+            <div className="space-y-3">
+              {featureRiskList.length > 0 ? featureRiskList.slice(0, 5).map((feature) => (
+                <FeatureRiskRow key={feature.feature} feature={feature.feature} rank={feature.rank} importance={feature.importance} isProxy={feature.isProxy} priority={feature.priority} maxImportance={featureRiskList[0]?.importance ?? 1} />
+              )) : (
+                <div className="rounded-xl border border-dashed border-[#E5E7EB] p-5 text-sm text-[#9CA3AF]">No feature importance data available.</div>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* SHAP Feature Importance */}
         <div className="bg-white rounded-2xl border border-[#E5E7EB] p-6 mb-8">
           <div className="flex items-center justify-between mb-6">
@@ -564,18 +717,201 @@ function CheckCircle({ size, className }: { size: number; className?: string }) 
   );
 }
 
+type DashboardIcon = ComponentType<{ size?: number; className?: string }>;
+
+function CommandSummary({
+  icon: Icon,
+  label,
+  value,
+  note,
+}: {
+  icon: DashboardIcon;
+  label: string;
+  value: string;
+  note: string;
+}) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/[0.08] p-4 shadow-inner shadow-white/5">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <span className="text-xs font-medium uppercase tracking-wide text-[#93A4BC]" style={{ fontFamily: 'Inter, sans-serif' }}>
+          {label}
+        </span>
+        <Icon size={15} className="text-[#93C5FD]" />
+      </div>
+      <div className="text-2xl font-semibold text-white" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+        {value}
+      </div>
+      <div className="mt-1 text-xs text-[#94A3B8]" style={{ fontFamily: 'Inter, sans-serif' }}>
+        {note}
+      </div>
+    </div>
+  );
+}
+
+function WorkflowLink({
+  title,
+  body,
+  to,
+  icon: Icon,
+  tone,
+}: {
+  title: string;
+  body: string;
+  to: string;
+  icon: DashboardIcon;
+  tone: string;
+}) {
+  const palette = {
+    fair: { bg: '#ECFDF5', color: '#047857', border: '#A7F3D0' },
+    caution: { bg: '#FFFBEB', color: '#B45309', border: '#FDE68A' },
+    risk: { bg: '#FEF2F2', color: '#DC2626', border: '#FECACA' },
+  }[tone] ?? { bg: '#F9FAFB', color: '#374151', border: '#E5E7EB' };
+
+  return (
+    <Link
+      to={to}
+      className="group flex items-start gap-3 rounded-xl border p-4 transition-all hover:-translate-y-0.5 hover:shadow-lg"
+      style={{ borderColor: palette.border, backgroundColor: palette.bg }}
+    >
+      <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-white shadow-sm">
+        <Icon size={17} style={{ color: palette.color }} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-sm font-semibold text-[#111827]" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+            {title}
+          </h3>
+          <ArrowRight size={14} className="flex-shrink-0 text-[#9CA3AF] transition-transform group-hover:translate-x-1" />
+        </div>
+        <p className="mt-1 text-xs leading-5 text-[#6B7280]" style={{ fontFamily: 'Inter, sans-serif' }}>
+          {body}
+        </p>
+      </div>
+    </Link>
+  );
+}
+
+function FocusMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] p-4">
+      <div className="text-xs font-medium uppercase tracking-wide text-[#9CA3AF]" style={{ fontFamily: 'Inter, sans-serif' }}>
+        {label}
+      </div>
+      <div className="mt-2 text-xl font-semibold text-[#111827]" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function GroupWatchRow({
+  group,
+  attr,
+  rate,
+  gap,
+  severity,
+}: {
+  group: string;
+  attr: string;
+  rate: number;
+  gap: number;
+  severity: 'risk' | 'caution' | 'fair';
+}) {
+  const palette = {
+    risk: { color: '#DC2626', bg: '#FEF2F2', border: '#FECACA', label: 'High gap' },
+    caution: { color: '#D97706', bg: '#FFFBEB', border: '#FDE68A', label: 'Review' },
+    fair: { color: '#047857', bg: '#ECFDF5', border: '#A7F3D0', label: 'Stable' },
+  }[severity];
+
+  return (
+    <div className="rounded-xl border p-4" style={{ borderColor: palette.border, backgroundColor: palette.bg }}>
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="truncate text-sm font-semibold text-[#111827]" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+            {group}
+          </div>
+          <div className="mt-1 text-xs text-[#6B7280]" style={{ fontFamily: 'Inter, sans-serif' }}>
+            {attr} · {gap}pt below leading group
+          </div>
+        </div>
+        <span className="rounded-full bg-white px-2.5 py-1 text-xs font-medium" style={{ color: palette.color }}>
+          {palette.label}
+        </span>
+      </div>
+      <div className="mt-3 h-2 rounded-full bg-white">
+        <div className="h-2 rounded-full" style={{ width: `${Math.max(5, rate)}%`, backgroundColor: palette.color }} />
+      </div>
+      <div className="mt-2 flex justify-between text-xs text-[#6B7280]" style={{ fontFamily: 'Inter, sans-serif' }}>
+        <span>Positive rate</span>
+        <span className="font-mono text-[#111827]">{rate}%</span>
+      </div>
+    </div>
+  );
+}
+
+function FeatureRiskRow({
+  feature,
+  rank,
+  importance,
+  isProxy,
+  priority,
+  maxImportance,
+}: {
+  feature: string;
+  rank: number;
+  importance: number;
+  isProxy: boolean;
+  priority: string;
+  maxImportance: number;
+}) {
+  const width = Math.max(6, Math.min(100, (importance / Math.max(maxImportance, 0.0001)) * 100));
+  const color = isProxy ? '#EF4444' : rank <= 3 ? '#2563EB' : '#64748B';
+
+  return (
+    <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="rounded-md bg-white px-2 py-1 text-[11px] font-mono text-[#6B7280]">#{rank}</span>
+            <span className="truncate text-sm font-semibold text-[#111827]" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+              {feature}
+            </span>
+          </div>
+          <div className="mt-2 text-xs text-[#6B7280]" style={{ fontFamily: 'Inter, sans-serif' }}>
+            {isProxy ? 'Correlates with a protected attribute' : 'Contributes to model decisions'}
+          </div>
+        </div>
+        <span
+          className="rounded-full px-2.5 py-1 text-xs font-medium"
+          style={{ backgroundColor: isProxy ? '#FEF2F2' : '#EFF6FF', color }}
+        >
+          {priority}
+        </span>
+      </div>
+      <div className="mt-3 h-2 rounded-full bg-white">
+        <div className="h-2 rounded-full" style={{ width: `${width}%`, backgroundColor: color }} />
+      </div>
+      <div className="mt-2 text-right text-xs font-mono text-[#6B7280]">{importance.toFixed(4)}</div>
+    </div>
+  );
+}
+
 function FairnessMetricCard({
   label,
   value,
   status,
   threshold,
   detail,
+  selected,
+  onSelect,
 }: {
   label: string;
   value: string;
   status: 'fair' | 'caution' | 'risk' | 'unavailable';
   threshold: string;
   detail: string;
+  selected: boolean;
+  onSelect: () => void;
 }) {
   const config = {
     fair: { color: '#10B981', bg: '#ECFDF5', border: '#A7F3D0', tag: 'Fair' },
@@ -585,7 +921,12 @@ function FairnessMetricCard({
   }[status];
 
   return (
-    <div className="rounded-xl p-5 border bg-white" style={{ borderColor: config.border }}>
+    <button
+      type="button"
+      onClick={onSelect}
+      className="rounded-xl p-5 border bg-white text-left transition-all hover:-translate-y-0.5 hover:shadow-lg"
+      style={{ borderColor: selected ? config.color : config.border, boxShadow: selected ? `0 14px 36px ${config.color}22` : undefined }}
+    >
       <div className="flex items-start justify-between gap-3 mb-3">
         <span className="text-xs font-medium text-[#6B7280] uppercase tracking-wide">{label}</span>
         <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full" style={{ color: config.color, backgroundColor: config.bg }}>
@@ -600,7 +941,7 @@ function FairnessMetricCard({
       <div className="text-xs mt-2" style={{ color: config.color }}>
         {detail}
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -706,16 +1047,6 @@ function RecoverableEmptyState() {
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function MiniSummary({ label, value, note }: { label: string; value: string; note: string }) {
-  return (
-    <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] p-3">
-      <div className="text-xs text-[#6B7280]" style={{ fontFamily: 'Inter, sans-serif' }}>{label}</div>
-      <div className="mt-1 text-lg font-semibold text-[#111827]" style={{ fontFamily: 'DM Sans, sans-serif' }}>{value}</div>
-      <div className="text-xs text-[#6B7280]" style={{ fontFamily: 'Inter, sans-serif' }}>{note}</div>
     </div>
   );
 }

@@ -1,185 +1,205 @@
 import { Link } from 'react-router';
 import { PrimaryButton } from '../ui/Button';
-import { ArrowRight, Play } from 'lucide-react';
+import { ArrowRight, BarChart3, Play, ShieldCheck, Terminal } from 'lucide-react';
+
+const comparisonBars = [
+  { group: 'Male', rate: 72, color: '#60A5FA' },
+  { group: 'Female', rate: 34, color: '#EF4444' },
+  { group: 'White', rate: 68, color: '#3B82F6' },
+  { group: 'Black', rate: 29, color: '#F97316' },
+  { group: 'Latinx', rate: 38, color: '#F59E0B' },
+  { group: 'Asian', rate: 61, color: '#10B981' },
+];
 
 export function Hero() {
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden" style={{ background: '#0F172A' }}>
-      {/* Particle background */}
+    <section className="relative min-h-screen overflow-hidden" style={{ background: '#0B1220' }}>
+      <div className="absolute inset-0 opacity-30" style={{
+        backgroundImage: 'linear-gradient(rgba(147,197,253,0.13) 1px, transparent 1px), linear-gradient(90deg, rgba(147,197,253,0.13) 1px, transparent 1px)',
+        backgroundSize: '56px 56px',
+      }} />
+      <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, rgba(37,99,235,0.22) 0%, transparent 34%, rgba(16,185,129,0.12) 68%, rgba(15,23,42,0.92) 100%)' }} />
       <ParticleField />
 
-      {/* Gradient orbs */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full opacity-10 blur-3xl" style={{ background: 'radial-gradient(circle, #3B82F6, transparent)' }} />
-      <div className="absolute bottom-1/4 right-1/4 w-64 h-64 rounded-full opacity-10 blur-3xl" style={{ background: 'radial-gradient(circle, #8B5CF6, transparent)' }} />
-
-      <div className="relative z-10 max-w-7xl mx-auto px-6 pt-24 pb-16">
-        <div className="grid lg:grid-cols-2 gap-16 items-center">
-          {/* Left Content */}
+      <div className="relative z-10 mx-auto max-w-7xl px-6 pb-20 pt-28 lg:pt-36">
+        <div className="grid items-center gap-14 lg:grid-cols-[0.92fr_1.08fr]">
           <div className="text-center lg:text-left">
-            {/* Badge */}
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-8 border border-[#3B82F6]/30 bg-[#3B82F6]/10">
-              <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse" />
-              <span className="text-xs font-medium text-[#93C5FD]" style={{ fontFamily: 'Inter, sans-serif' }}>
-                AI Bias Detection Platform
+            <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-[#93C5FD]/20 bg-white/5 px-3 py-1.5 shadow-lg shadow-blue-950/30 backdrop-blur-md">
+              <span className="h-2 w-2 rounded-full bg-[#10B981] shadow-[0_0_18px_rgba(16,185,129,0.9)]" />
+              <span className="text-xs font-semibold uppercase tracking-wide text-[#BFDBFE]" style={{ fontFamily: 'Inter, sans-serif' }}>
+                AI Fairness Infrastructure
               </span>
             </div>
 
             <h1
-              className="mb-6 leading-tight tracking-tight"
-              style={{ fontFamily: 'DM Sans, sans-serif', fontWeight: 700, fontSize: 'clamp(3rem, 6vw, 5rem)', color: 'white' }}
+              className="mb-6 max-w-4xl tracking-tight"
+              style={{ fontFamily: 'DM Sans, sans-serif', fontWeight: 800, fontSize: 'clamp(3.25rem, 7vw, 6.75rem)', lineHeight: 0.92, color: 'white' }}
             >
-              Detect the{' '}
-              <span className="parity-gradient-text" data-text="Bias">
-                Bias
-              </span>
+              Your AI might be{' '}
+              <span className="parity-gradient-text">discriminating.</span>
               <br />
-              Fix it.
+              Know before it harms people.
             </h1>
 
             <p
-              className="mb-8 max-w-xl leading-relaxed"
-              style={{ fontFamily: 'Inter, sans-serif', fontSize: '1.125rem', color: '#9CA3AF' }}
+              className="mx-auto mb-9 max-w-2xl leading-relaxed lg:mx-0"
+              style={{ fontFamily: 'Inter, sans-serif', fontSize: '1.15rem', color: '#CBD5E1' }}
             >
-              AI is making decisions about your job, loan, and health. Parity shows you exactly where the bias is — and how to fix it.
+              Parity audits machine learning systems for discrimination across hiring, healthcare, finance, and criminal justice using explainable fairness intelligence.
             </p>
 
-            <div className="flex flex-wrap gap-4 justify-center lg:justify-start mb-12">
+            <div className="mb-10 flex flex-wrap justify-center gap-4 lg:justify-start">
               <Link to="/app/onboard">
-                <PrimaryButton size="lg" className="shadow-lg shadow-blue-500/30">
-                  Audit Your Model
+                <PrimaryButton size="lg" className="shadow-xl shadow-blue-500/30 hover:shadow-blue-500/50">
+                  Start Free Audit
                   <ArrowRight size={18} />
                 </PrimaryButton>
               </Link>
               <a
                 href="#features"
-                className="inline-flex items-center gap-2 px-8 py-3.5 rounded-lg border border-white/20 text-white hover:bg-white/10 transition-all duration-200"
+                className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/5 px-8 py-3.5 text-white backdrop-blur-sm transition-all duration-200 hover:border-[#93C5FD]/50 hover:bg-white/10"
                 style={{ fontFamily: 'Inter, sans-serif', fontSize: '1rem' }}
               >
                 <Play size={16} fill="white" />
-                See it in Action
+                Watch Interactive Demo
               </a>
             </div>
 
-
-          </div>
-
-          {/* Right - Animated Balance Scale + Floating Metric Cards */}
-          <div className="relative flex items-center justify-center h-[500px]">
-            <AnimatedBalanceScale />
-
-            {/* Floating metric cards */}
-            <div
-              className="absolute top-8 right-0 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-3 text-white"
-              style={{ animation: 'floatUp 3s ease-in-out infinite' }}
-            >
-              <div className="flex items-center gap-2 mb-1">
-                <span className="w-2 h-2 rounded-full bg-[#EF4444]" />
-                <span className="text-xs text-[#9CA3AF]" style={{ fontFamily: 'Inter, sans-serif' }}>Disparate Impact</span>
-              </div>
-              <span className="text-lg font-bold" style={{ fontFamily: 'JetBrains Mono, monospace', color: '#EF4444' }}>0.45</span>
-              <span className="text-xs text-[#9CA3AF] ml-2">⚠ Below threshold</span>
-            </div>
-
-            <div
-              className="absolute bottom-16 left-0 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-3 text-white"
-              style={{ animation: 'floatDown 3.5s ease-in-out infinite' }}
-            >
-              <div className="flex items-center gap-2 mb-1">
-                <span className="w-2 h-2 rounded-full bg-[#10B981]" />
-                <span className="text-xs text-[#9CA3AF]" style={{ fontFamily: 'Inter, sans-serif' }}>Equalized Odds</span>
-              </div>
-              <span className="text-lg font-bold" style={{ fontFamily: 'JetBrains Mono, monospace', color: '#10B981' }}>Fair ✓</span>
-            </div>
-
-            <div
-              className="absolute top-1/2 left-4 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-3 text-white"
-              style={{ animation: 'floatUp 4s ease-in-out infinite 1s' }}
-            >
-              <div className="flex items-center gap-2 mb-1">
-                <span className="w-2 h-2 rounded-full bg-[#F59E0B]" />
-                <span className="text-xs text-[#9CA3AF]" style={{ fontFamily: 'Inter, sans-serif' }}>Calibration Error</span>
-              </div>
-              <span className="text-lg font-bold" style={{ fontFamily: 'JetBrains Mono, monospace', color: '#F59E0B' }}>7.2%</span>
+            <div className="grid max-w-2xl grid-cols-3 gap-3">
+              {[
+                ['12+', 'fairness metrics'],
+                ['5', 'regulated domains'],
+                ['PDF', 'audit evidence'],
+              ].map(([value, label]) => (
+                <div key={label} className="rounded-xl border border-white/10 bg-white/[0.04] p-4 text-left backdrop-blur-sm">
+                  <div className="font-mono text-xl font-bold text-white">{value}</div>
+                  <div className="mt-1 text-xs text-[#94A3B8]">{label}</div>
+                </div>
+              ))}
             </div>
           </div>
+
+          <FairnessCommandCenter />
         </div>
       </div>
 
-      {/* Bottom vignette */}
-      <div className="absolute bottom-0 left-0 right-0 h-32 pointer-events-none" style={{ background: 'linear-gradient(to bottom, transparent, #0F172A)' }} />
+      <div className="absolute bottom-0 left-0 right-0 h-36 pointer-events-none" style={{ background: 'linear-gradient(to bottom, transparent, #F9FAFB)' }} />
     </section>
   );
 }
 
-function AnimatedBalanceScale() {
+function FairnessCommandCenter() {
   return (
-    <svg width="280" height="300" viewBox="0 0 280 300" fill="none" style={{ filter: 'drop-shadow(0 0 40px rgba(59, 130, 246, 0.3))' }}>
-      {/* Center post */}
-      <rect x="136" y="60" width="8" height="180" rx="4" fill="#3B82F6" />
+    <div className="relative mx-auto h-[560px] w-full max-w-[640px]">
+      <div className="absolute inset-0 rounded-[28px] border border-white/10 bg-white/[0.035] shadow-[0_32px_120px_rgba(15,23,42,0.55)] backdrop-blur-xl" />
+      <div className="absolute inset-x-4 top-4 rounded-2xl border border-white/10 bg-[#020617]/80 p-4">
+        <div className="flex items-center justify-between border-b border-white/10 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#2563EB]/20 text-[#93C5FD]">
+              <Terminal size={18} />
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-white" style={{ fontFamily: 'DM Sans, sans-serif' }}>Live fairness audit</div>
+              <div className="text-xs text-[#64748B] font-mono">model://credit-risk-v7</div>
+            </div>
+          </div>
+          <span className="rounded-full border border-[#10B981]/25 bg-[#10B981]/10 px-2.5 py-1 text-xs font-medium text-[#A7F3D0]">Scanning</span>
+        </div>
 
-      {/* Top ornament */}
-      <circle cx="140" cy="55" r="8" fill="#93C5FD" />
+        <div className="mt-5 grid gap-4 md:grid-cols-[0.85fr_1.15fr]">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-5">
+            <div className="mb-4 flex items-center justify-between text-xs uppercase tracking-wide text-[#94A3B8]">
+              Risk score
+              <ShieldCheck size={15} className="text-[#93C5FD]" />
+            </div>
+            <div className="relative mx-auto flex h-40 w-40 items-center justify-center">
+              <svg viewBox="0 0 120 120" className="absolute inset-0 h-full w-full -rotate-90">
+                <circle cx="60" cy="60" r="48" fill="none" stroke="#1E293B" strokeWidth="12" />
+                <circle cx="60" cy="60" r="48" fill="none" stroke="#F59E0B" strokeWidth="12" strokeDasharray="301" strokeDashoffset="86" strokeLinecap="round" />
+              </svg>
+              <div className="text-center">
+                <div className="font-mono text-5xl font-bold text-white">72</div>
+                <div className="mt-1 text-xs text-[#FDE68A]">Needs review</div>
+              </div>
+            </div>
+          </div>
 
-      {/* Base */}
-      <rect x="100" y="235" width="80" height="8" rx="4" fill="#3B82F6" />
-      <rect x="120" y="243" width="40" height="6" rx="3" fill="#1D4ED8" />
+          <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-5">
+            <div className="mb-4 flex items-center justify-between text-xs uppercase tracking-wide text-[#94A3B8]">
+              Group comparison
+              <BarChart3 size={15} className="text-[#93C5FD]" />
+            </div>
+            <div className="flex h-40 items-end gap-3">
+              {comparisonBars.map((bar, index) => (
+                <div key={bar.group} className="flex flex-1 flex-col items-center gap-1.5">
+                  <span className="text-[10px] font-mono text-[#CBD5E1]">{bar.rate}%</span>
+                  <div
+                    className="w-full rounded-t-md"
+                    style={{
+                      height: `${bar.rate * 1.25}px`,
+                      minHeight: 8,
+                      background: `linear-gradient(180deg, ${bar.color}, rgba(15,23,42,0.2))`,
+                      animation: `barRise 1.1s ${index * 80}ms cubic-bezier(.2,.8,.2,1) both`,
+                    }}
+                  />
+                  <span className="text-[9px] text-[#64748B]">{bar.group}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
 
-      {/* Balance beam - animates */}
-      <g style={{ transformOrigin: '140px 100px', animation: 'scaleTip 4s ease-in-out infinite' }}>
-        <rect x="60" y="96" width="160" height="8" rx="4" fill="#93C5FD" />
+        <div className="mt-4 grid grid-cols-3 gap-3">
+          <MetricBadge label="Disparate Impact" value="0.54" tone="risk" />
+          <MetricBadge label="Equalized Odds" value="0.31" tone="warn" />
+          <MetricBadge label="Proxy Risk" value="High" tone="risk" />
+        </div>
+      </div>
 
-        {/* Left chain */}
-        <line x1="75" y1="104" x2="75" y2="155" stroke="#93C5FD" strokeWidth="2" strokeDasharray="4 2" />
+      <div className="absolute bottom-7 left-8 right-8 rounded-2xl border border-[#93C5FD]/15 bg-[#020617]/85 p-4 shadow-2xl shadow-blue-950/40 backdrop-blur-xl">
+        <div className="mb-3 flex items-center justify-between">
+          <div className="text-sm font-semibold text-white">AI decision trace</div>
+          <div className="text-xs text-[#93C5FD] font-mono">explainable</div>
+        </div>
+        <div className="grid grid-cols-5 gap-2">
+          {['income', 'zip', 'school', 'race proxy', 'decision'].map((node, index) => (
+            <div key={node} className={`rounded-lg border px-2 py-2 text-center text-[10px] ${index === 3 ? 'border-[#EF4444]/40 bg-[#EF4444]/10 text-[#FECACA]' : 'border-white/10 bg-white/[0.04] text-[#CBD5E1]'}`}>
+              {node}
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 rounded-lg bg-[#0F172A] px-3 py-2 font-mono text-[11px] leading-5 text-[#93C5FD]">
+          &gt; proxy_correlation: 0.74 · mitigation: rebalance threshold
+        </div>
+      </div>
+    </div>
+  );
+}
 
-        {/* Right chain */}
-        <line x1="205" y1="104" x2="205" y2="140" stroke="#93C5FD" strokeWidth="2" strokeDasharray="4 2" />
-
-        {/* Left pan */}
-        <ellipse cx="75" cy="165" rx="30" ry="12" fill="#1D4ED8" stroke="#3B82F6" strokeWidth="2" />
-        <rect x="45" y="155" width="60" height="10" rx="5" fill="#2563EB" />
-
-        {/* Left pan content - bias metrics */}
-        <text x="75" y="163" textAnchor="middle" fill="#93C5FD" fontSize="8" fontFamily="JetBrains Mono">0.45</text>
-
-        {/* Right pan */}
-        <ellipse cx="205" cy="150" rx="30" ry="12" fill="#065F46" stroke="#10B981" strokeWidth="2" />
-        <rect x="175" y="140" width="60" height="10" rx="5" fill="#059669" />
-
-        {/* Right pan content */}
-        <text x="205" y="148" textAnchor="middle" fill="#A7F3D0" fontSize="8" fontFamily="JetBrains Mono">Fair</text>
-      </g>
-
-      {/* Glowing dots decoration */}
-      <circle cx="40" cy="80" r="3" fill="#3B82F6" opacity="0.6" style={{ animation: 'pulse 2s ease-in-out infinite' }} />
-      <circle cx="240" cy="120" r="2" fill="#8B5CF6" opacity="0.6" style={{ animation: 'pulse 2.5s ease-in-out infinite' }} />
-      <circle cx="60" cy="200" r="2" fill="#10B981" opacity="0.6" style={{ animation: 'pulse 3s ease-in-out infinite' }} />
-    </svg>
+function MetricBadge({ label, value, tone }: { label: string; value: string; tone: 'risk' | 'warn' }) {
+  const color = tone === 'risk' ? '#EF4444' : '#F59E0B';
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/[0.035] p-3">
+      <div className="text-[10px] text-[#94A3B8]">{label}</div>
+      <div className="mt-1 font-mono text-lg font-bold" style={{ color }}>{value}</div>
+    </div>
   );
 }
 
 function ParticleField() {
-  const particles = Array.from({ length: 30 }, (_, i) => ({
-    id: i,
-    left: Math.random() * 100,
-    top: Math.random() * 100,
-    size: Math.random() * 3 + 1,
-    delay: Math.random() * 5,
-    duration: Math.random() * 5 + 5,
-  }));
-
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
-      {particles.map((p) => (
+      {Array.from({ length: 34 }, (_, i) => (
         <div
-          key={p.id}
-          className="absolute rounded-full bg-blue-400"
+          key={i}
+          className="absolute rounded-full bg-blue-300"
           style={{
-            left: `${p.left}%`,
-            top: `${p.top}%`,
-            width: p.size,
-            height: p.size,
-            opacity: 0.15,
-            animation: `drift ${p.duration}s ease-in-out ${p.delay}s infinite`,
+            left: `${(i * 31) % 100}%`,
+            top: `${(i * 17) % 100}%`,
+            width: 1 + (i % 3),
+            height: 1 + (i % 3),
+            opacity: 0.16,
+            animation: `drift ${6 + (i % 5)}s ease-in-out ${(i % 7) * 0.4}s infinite`,
           }}
         />
       ))}

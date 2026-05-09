@@ -46,10 +46,15 @@ export interface BiasMetrics {
 
 export interface AnalyzeResponse {
   status: 'success' | 'error';
+  analysis_id?: string;
   filename: string;
   target_column: string;
   sensitive_columns: string[];
   domain: string;
+  persistence?: {
+    saved: boolean;
+    warning: string | null;
+  };
   results: BiasMetrics;
 }
 

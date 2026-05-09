@@ -178,6 +178,11 @@ body {
   100% { transform: scale(2); opacity: 0; }
 }
 
+@keyframes barRise {
+  from { transform: scaleY(0.16); opacity: 0.35; transform-origin: bottom; }
+  to { transform: scaleY(1); opacity: 1; transform-origin: bottom; }
+}
+
 /* ── Metric Card Hover ─────────────────────────────── */
 .feature-card {
   transition: transform 0.2s ease, box-shadow 0.2s ease;

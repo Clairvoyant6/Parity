@@ -167,7 +167,9 @@ export function UploadPage() {
       setAvailableColumns(preview.columns);
       setColumns(buildColumns(preview.columns, preview.preview, preset));
       setPreviewRows(preview.preview);
-      setSelectedDomain(preset?.domain ?? domain ?? 'general');
+      const nextDomain = preset?.domain ?? domain ?? 'general';
+      setSelectedDomain(nextDomain);
+      setDomain(nextDomain);
       setTargetColumn(preset?.suggested_target ?? '');
       setSensitiveColumns(splitColumns(preset?.suggested_sensitive));
       setDemoDatasetFile(preset?.file ?? null);

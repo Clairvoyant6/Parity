@@ -3,6 +3,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, Response
 import pandas as pd
 import io
+import logging
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -18,6 +19,7 @@ from app.services.dataset_catalog import get_dataset_catalog
 from app.services.bias_engine import compute_bias_metrics
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 def _parse_sensitive_columns(raw_sensitive_columns: str) -> list[str]:
@@ -141,6 +143,7 @@ async def analyze_dataset(
         raise HTTPException(status_code=500, detail=f"Bias computation failed: {str(e)}")
 
     analysis_id = new_analysis_id()
+    persistence_status = {"saved": True, "warning": None}
     try:
         save_successful_analysis(
             db,
@@ -152,7 +155,12 @@ async def analyze_dataset(
             results=metrics,
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Could not persist analysis: {str(e)}")
+        db.rollback()
+        logger.exception("Could not persist analysis %s", analysis_id)
+        persistence_status = {
+            "saved": False,
+            "warning": f"Analysis completed, but could not be saved: {str(e)}",
+        }
 
     return JSONResponse(content=jsonable_encoder({
         "status": "success",
@@ -161,6 +169,7 @@ async def analyze_dataset(
         "target_column": target_column,
         "sensitive_columns": sens_cols,
         "domain": domain,
+        "persistence": persistence_status,
         "results": metrics
     }))
 

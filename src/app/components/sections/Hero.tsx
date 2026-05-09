@@ -90,9 +90,10 @@ export function Hero() {
 
 function FairnessCommandCenter() {
   return (
-    <div className="relative mx-auto h-[560px] w-full max-w-[640px]">
+    <div className="relative mx-auto w-full max-w-[620px]">
       <div className="absolute inset-0 rounded-[28px] border border-white/10 bg-white/[0.035] shadow-[0_32px_120px_rgba(15,23,42,0.55)] backdrop-blur-xl" />
-      <div className="absolute inset-x-4 top-4 rounded-2xl border border-white/10 bg-[#020617]/80 p-4">
+      <div className="relative rounded-[28px] border border-white/10 bg-white/[0.035] p-5 backdrop-blur-xl">
+      <div className="rounded-2xl border border-white/10 bg-[#020617]/80 p-4">
         <div className="flex items-center justify-between border-b border-white/10 pb-4">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#2563EB]/20 text-[#93C5FD]">
@@ -112,24 +113,24 @@ function FairnessCommandCenter() {
               Risk score
               <ShieldCheck size={15} className="text-[#93C5FD]" />
             </div>
-            <div className="relative mx-auto flex h-40 w-40 items-center justify-center">
+            <div className="relative mx-auto flex h-36 w-36 items-center justify-center">
               <svg viewBox="0 0 120 120" className="absolute inset-0 h-full w-full -rotate-90">
                 <circle cx="60" cy="60" r="48" fill="none" stroke="#1E293B" strokeWidth="12" />
                 <circle cx="60" cy="60" r="48" fill="none" stroke="#F59E0B" strokeWidth="12" strokeDasharray="301" strokeDashoffset="86" strokeLinecap="round" />
               </svg>
               <div className="text-center">
-                <div className="font-mono text-5xl font-bold text-white">72</div>
+                <div className="font-mono text-4xl font-bold text-white">72</div>
                 <div className="mt-1 text-xs text-[#FDE68A]">Needs review</div>
               </div>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-5">
+          <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.035] p-5">
             <div className="mb-4 flex items-center justify-between text-xs uppercase tracking-wide text-[#94A3B8]">
               Group comparison
               <BarChart3 size={15} className="text-[#93C5FD]" />
             </div>
-            <div className="flex h-40 items-end gap-3">
+            <div className="flex h-36 items-end gap-2">
               {comparisonBars.map((bar, index) => (
                 <div key={bar.group} className="flex flex-1 flex-col items-center gap-1.5">
                   <span className="text-[10px] font-mono text-[#CBD5E1]">{bar.rate}%</span>
@@ -142,7 +143,7 @@ function FairnessCommandCenter() {
                       animation: `barRise 1.1s ${index * 80}ms cubic-bezier(.2,.8,.2,1) both`,
                     }}
                   />
-                  <span className="text-[9px] text-[#64748B]">{bar.group}</span>
+                  <span className="max-w-full truncate text-[9px] text-[#64748B]">{bar.group}</span>
                 </div>
               ))}
             </div>
@@ -156,7 +157,7 @@ function FairnessCommandCenter() {
         </div>
       </div>
 
-      <div className="absolute bottom-7 left-8 right-8 rounded-2xl border border-[#93C5FD]/15 bg-[#020617]/85 p-4 shadow-2xl shadow-blue-950/40 backdrop-blur-xl">
+      <div className="mt-4 rounded-2xl border border-[#93C5FD]/15 bg-[#020617]/85 p-4 shadow-2xl shadow-blue-950/40 backdrop-blur-xl">
         <div className="mb-3 flex items-center justify-between">
           <div className="text-sm font-semibold text-white">AI decision trace</div>
           <div className="text-xs text-[#93C5FD] font-mono">explainable</div>
@@ -171,6 +172,7 @@ function FairnessCommandCenter() {
         <div className="mt-3 rounded-lg bg-[#0F172A] px-3 py-2 font-mono text-[11px] leading-5 text-[#93C5FD]">
           &gt; proxy_correlation: 0.74 · mitigation: rebalance threshold
         </div>
+      </div>
       </div>
     </div>
   );

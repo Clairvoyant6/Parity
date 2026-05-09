@@ -1,8 +1,9 @@
 import { useState } from 'react';
+import type { ComponentType } from 'react';
 import { Link } from 'react-router';
 import { Navbar } from '../components/Navbar';
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { ChevronLeft, Filter, Info, ShieldAlert, SlidersHorizontal } from 'lucide-react';
+import { ArrowRight, CheckCircle2, ChevronLeft, Filter, Gauge, Info, Network, ShieldAlert, SlidersHorizontal, Target } from 'lucide-react';
 import { useAnalysis } from '../../context/AnalysisContext';
 
 function getHeatColor(val: number): string {
@@ -21,6 +22,7 @@ export function BiasDetails() {
   const [selectedCell, setSelectedCell] = useState<{ feature: string; attr: string; corr: number } | null>(null);
   const [minCorrelation, setMinCorrelation] = useState(0);
   const [showOnlyProxy, setShowOnlyProxy] = useState(false);
+  const [selectedFeatureName, setSelectedFeatureName] = useState('');
 
   if (!analysisResult) {
     return (
@@ -61,6 +63,22 @@ export function BiasDetails() {
   const avgProxyCorrelation = proxyFlags.length
     ? proxyFlags.reduce((sum, p) => sum + (p.correlation ?? 0), 0) / proxyFlags.length
     : 0;
+  const featureCards = shapFeatures.map((feature) => {
+    const linkedProxy = proxyFlags.find((p) => p.feature === feature.name);
+    return {
+      ...feature,
+      isProxy: Boolean(linkedProxy),
+      sensitiveAttribute: linkedProxy?.sensitive_attribute ?? 'None detected',
+      correlation: linkedProxy?.correlation ?? 0,
+      priority: linkedProxy?.risk_level === 'HIGH' || (linkedProxy?.correlation ?? 0) >= 0.7 ? 'High' : linkedProxy ? 'Medium' : 'Low',
+    };
+  });
+  const activeFeature = featureCards.find((feature) => feature.name === selectedFeatureName) ?? featureCards[0];
+  const mitigationQueue = [
+    highRiskCount > 0 ? 'Review high-correlation proxy features before export.' : null,
+    proxyFlags.length > 0 ? 'Run a What-If scenario on each protected proxy relationship.' : 'No proxy flags detected. Keep monitoring feature importance drift.',
+    'Document the mitigation decision in the PDF audit report.',
+  ].filter(Boolean) as string[];
 
   return (
     <div className="min-h-screen" style={{ background: '#F9FAFB' }}>
@@ -91,6 +109,87 @@ export function BiasDetails() {
             <SummaryPill label="Avg corr." value={avgProxyCorrelation.toFixed(2)} tone={avgProxyCorrelation >= 0.5 ? 'caution' : 'fair'} />
           </div>
         </div>
+
+        <div className="mb-8 grid gap-4 lg:grid-cols-4">
+          <InsightWidget icon={Gauge} title="Risk posture" value={r.risk_level} body={`Bias score ${r.bias_risk_score}/100 with ${proxyFlags.length} proxy signal(s).`} tone={r.risk_level === 'HIGH' ? 'risk' : r.risk_level === 'MEDIUM' ? 'caution' : 'fair'} />
+          <InsightWidget icon={Network} title="Proxy surface" value={`${proxyFlags.length}`} body={proxyFlags.length ? `${highRiskCount} high-priority feature(s) need review.` : 'No current protected-attribute proxies.'} tone={proxyFlags.length ? 'risk' : 'fair'} />
+          <InsightWidget icon={Target} title="Top driver" value={activeFeature?.name ?? 'N/A'} body={activeFeature ? `Importance ${activeFeature.value.toFixed(4)} · ${activeFeature.priority} priority.` : 'No feature importance available.'} tone={activeFeature?.isProxy ? 'risk' : 'fair'} />
+          <InsightWidget icon={CheckCircle2} title="Evidence state" value={proxyFlags.length ? 'Review' : 'Ready'} body={proxyFlags.length ? 'Export after mitigation notes are documented.' : 'Clean drilldown ready for report export.'} tone={proxyFlags.length ? 'caution' : 'fair'} />
+        </div>
+
+        {featureCards.length > 0 && (
+          <div className="mb-8 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+            <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-base font-semibold text-[#111827]" style={{ fontFamily: 'DM Sans, sans-serif' }}>Interactive Feature Inspector</h2>
+                <span className="text-xs text-[#9CA3AF]" style={{ fontFamily: 'Inter, sans-serif' }}>Click a feature</span>
+              </div>
+              <div className="space-y-2">
+                {featureCards.slice(0, 8).map((feature) => {
+                  const isActive = activeFeature?.name === feature.name;
+                  return (
+                    <button
+                      key={feature.name}
+                      onClick={() => setSelectedFeatureName(feature.name)}
+                      className="w-full rounded-xl border px-3 py-3 text-left transition-all hover:border-[#3B82F6]"
+                      style={{
+                        borderColor: isActive ? '#93C5FD' : '#E5E7EB',
+                        backgroundColor: isActive ? '#EFF6FF' : '#FFFFFF',
+                      }}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="truncate font-mono text-sm text-[#111827]">{feature.name}</span>
+                        <span className="rounded-full px-2 py-0.5 text-[11px] font-medium" style={{
+                          backgroundColor: feature.isProxy ? '#FEF2F2' : '#ECFDF5',
+                          color: feature.isProxy ? '#DC2626' : '#047857',
+                        }}>{feature.priority}</span>
+                      </div>
+                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#F3F4F6]">
+                        <div className="h-full rounded-full" style={{ width: `${Math.min(100, feature.value / Math.max(featureCards[0].value, 0.001) * 100)}%`, backgroundColor: feature.isProxy ? '#EF4444' : '#3B82F6' }} />
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5">
+              <div className="mb-5 flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-[#6B7280]" style={{ fontFamily: 'Inter, sans-serif' }}>Selected feature</div>
+                  <h2 className="mt-1 text-xl font-bold text-[#111827]" style={{ fontFamily: 'DM Sans, sans-serif' }}>{activeFeature?.name ?? 'No feature selected'}</h2>
+                </div>
+                {activeFeature && (
+                  <span className="rounded-full border px-3 py-1 text-xs font-medium" style={{
+                    borderColor: activeFeature.isProxy ? '#FECACA' : '#A7F3D0',
+                    backgroundColor: activeFeature.isProxy ? '#FEF2F2' : '#ECFDF5',
+                    color: activeFeature.isProxy ? '#DC2626' : '#047857',
+                  }}>{activeFeature.isProxy ? 'Proxy signal' : 'Model driver'}</span>
+                )}
+              </div>
+              {activeFeature && (
+                <>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <DetailMetric label="Importance" value={activeFeature.value.toFixed(4)} />
+                    <DetailMetric label="Correlation" value={activeFeature.correlation ? activeFeature.correlation.toFixed(3) : 'N/A'} />
+                    <DetailMetric label="Sensitive link" value={activeFeature.sensitiveAttribute} />
+                  </div>
+                  <div className="mt-5 rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] p-4">
+                    <div className="mb-3 text-sm font-semibold text-[#111827]" style={{ fontFamily: 'DM Sans, sans-serif' }}>Mitigation queue</div>
+                    <div className="space-y-2">
+                      {mitigationQueue.map((item) => (
+                        <div key={item} className="flex items-start gap-2 text-sm text-[#374151]" style={{ fontFamily: 'Inter, sans-serif' }}>
+                          <ArrowRight size={14} className="mt-0.5 text-[#2563EB]" />
+                          <span>{item}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Proxy Correlation Heatmap */}
         {features.length > 0 && attrs.length > 0 ? (
@@ -340,6 +439,47 @@ function SummaryPill({ label, value, tone }: { label: string; value: string; ton
     <div className="rounded-xl border px-4 py-2" style={{ backgroundColor: palette.bg, borderColor: palette.border }}>
       <div className="text-[10px] uppercase tracking-wide" style={{ color: palette.color, fontFamily: 'Inter, sans-serif' }}>{label}</div>
       <div className="font-mono text-lg font-bold" style={{ color: palette.color }}>{value}</div>
+    </div>
+  );
+}
+
+function InsightWidget({
+  icon: Icon,
+  title,
+  value,
+  body,
+  tone,
+}: {
+  icon: ComponentType<{ size?: number; className?: string }>;
+  title: string;
+  value: string;
+  body: string;
+  tone: 'fair' | 'caution' | 'risk';
+}) {
+  const palette = {
+    fair: { bg: '#ECFDF5', color: '#047857', border: '#A7F3D0' },
+    caution: { bg: '#FFFBEB', color: '#B45309', border: '#FDE68A' },
+    risk: { bg: '#FEF2F2', color: '#DC2626', border: '#FECACA' },
+  }[tone];
+  return (
+    <div className="rounded-2xl border bg-white p-5 shadow-sm" style={{ borderColor: palette.border }}>
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: palette.bg, color: palette.color }}>
+          <Icon size={18} />
+        </div>
+        <span className="text-xs font-medium" style={{ color: palette.color }}>{title}</span>
+      </div>
+      <div className="truncate text-xl font-bold text-[#111827]" style={{ fontFamily: 'DM Sans, sans-serif' }}>{value}</div>
+      <p className="mt-2 text-xs leading-5 text-[#6B7280]" style={{ fontFamily: 'Inter, sans-serif' }}>{body}</p>
+    </div>
+  );
+}
+
+function DetailMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] p-3">
+      <div className="text-[10px] uppercase tracking-wide text-[#9CA3AF]" style={{ fontFamily: 'Inter, sans-serif' }}>{label}</div>
+      <div className="mt-1 truncate font-mono text-sm font-bold text-[#374151]">{value}</div>
     </div>
   );
 }

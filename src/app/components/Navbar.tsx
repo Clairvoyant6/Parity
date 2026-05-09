@@ -53,7 +53,7 @@ export function Navbar({ variant = 'marketing' }: NavbarProps) {
     >
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-2.5">
+        <Link to="/" className="nav-brand-hover flex items-center gap-2.5">
           <BalanceScaleIcon />
           <span
             className="text-xl font-bold tracking-tight"
@@ -73,7 +73,7 @@ export function Navbar({ variant = 'marketing' }: NavbarProps) {
               <Link
                 key={link.label}
                 to={link.to}
-                className={`text-sm font-medium transition-colors duration-200 ${
+                className={`nav-link-hover text-sm font-medium transition-colors duration-200 ${
                   isActive(link) || scrolled || variant === 'app'
                     ? 'text-[#374151] hover:text-[#111827]'
                     : 'text-white/70 hover:text-white'
@@ -86,7 +86,7 @@ export function Navbar({ variant = 'marketing' }: NavbarProps) {
               <a
                 key={link.label}
                 href={link.href}
-                className={`text-sm font-medium transition-colors duration-200 ${
+                className={`nav-link-hover text-sm font-medium transition-colors duration-200 ${
                   scrolled || variant === 'app'
                     ? 'text-[#6B7280] hover:text-[#111827]'
                     : 'text-white/70 hover:text-white'
@@ -105,7 +105,7 @@ export function Navbar({ variant = 'marketing' }: NavbarProps) {
             <>
               <Link
                 to="/app/onboard"
-                className={`text-sm font-medium transition-colors ${
+                className={`nav-link-hover text-sm font-medium transition-colors ${
                   scrolled ? 'text-[#6B7280] hover:text-[#111827]' : 'text-white/70 hover:text-white'
                 }`}
                 style={{ fontFamily: 'Inter, sans-serif' }}

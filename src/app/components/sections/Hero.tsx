@@ -13,7 +13,7 @@ const comparisonBars = [
 
 export function Hero() {
   return (
-    <section className="relative min-h-screen overflow-hidden" style={{ background: '#0B1220' }}>
+    <section className="parity-hero-surface relative min-h-screen overflow-hidden" style={{ background: '#0B1220' }}>
       <div className="absolute inset-0 opacity-30" style={{
         backgroundImage: 'linear-gradient(rgba(147,197,253,0.13) 1px, transparent 1px), linear-gradient(90deg, rgba(147,197,253,0.13) 1px, transparent 1px)',
         backgroundSize: '56px 56px',
@@ -24,7 +24,7 @@ export function Hero() {
       <div className="relative z-10 mx-auto max-w-7xl px-6 pb-20 pt-28 lg:pt-36">
         <div className="grid items-center gap-14 lg:grid-cols-[0.92fr_1.08fr]">
           <div className="text-center lg:text-left">
-            <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-[#93C5FD]/20 bg-white/5 px-3 py-1.5 shadow-lg shadow-blue-950/30 backdrop-blur-md">
+            <div className="hero-eyebrow mb-7 inline-flex items-center gap-2 rounded-full border border-[#93C5FD]/20 bg-white/5 px-3 py-1.5 shadow-lg shadow-blue-950/30 backdrop-blur-md">
               <span className="h-2 w-2 rounded-full bg-[#10B981] shadow-[0_0_18px_rgba(16,185,129,0.9)]" />
               <span className="text-xs font-semibold uppercase tracking-wide text-[#BFDBFE]" style={{ fontFamily: 'Inter, sans-serif' }}>
                 AI Fairness Infrastructure
@@ -50,14 +50,14 @@ export function Hero() {
 
             <div className="mb-10 flex flex-wrap justify-center gap-4 lg:justify-start">
               <Link to="/app/onboard">
-                <PrimaryButton size="lg" className="shadow-xl shadow-blue-500/30 hover:shadow-blue-500/50">
+                <PrimaryButton size="lg" className="hero-primary-cta shadow-xl shadow-blue-500/30 hover:shadow-blue-500/50">
                   Start Free Audit
-                  <ArrowRight size={18} />
+                  <ArrowRight size={18} className="hero-cta-arrow" />
                 </PrimaryButton>
               </Link>
               <a
                 href="#features"
-                className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/5 px-8 py-3.5 text-white backdrop-blur-sm transition-all duration-200 hover:border-[#93C5FD]/50 hover:bg-white/10"
+                className="hero-secondary-cta inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/5 px-8 py-3.5 text-white backdrop-blur-sm transition-all duration-200 hover:border-[#93C5FD]/50 hover:bg-white/10"
                 style={{ fontFamily: 'Inter, sans-serif', fontSize: '1rem' }}
               >
                 <Play size={16} fill="white" />
@@ -71,7 +71,7 @@ export function Hero() {
                 ['5', 'regulated domains'],
                 ['PDF', 'audit evidence'],
               ].map(([value, label]) => (
-                <div key={label} className="rounded-xl border border-white/10 bg-white/[0.04] p-4 text-left backdrop-blur-sm">
+                <div key={label} className="hero-stat-card rounded-xl border border-white/10 bg-white/[0.04] p-4 text-left backdrop-blur-sm">
                   <div className="font-mono text-xl font-bold text-white">{value}</div>
                   <div className="mt-1 text-xs text-[#94A3B8]">{label}</div>
                 </div>
@@ -90,13 +90,13 @@ export function Hero() {
 
 function FairnessCommandCenter() {
   return (
-    <div className="relative mx-auto w-full max-w-[620px]">
+    <div className="hero-command-center group relative mx-auto w-full max-w-[620px]">
       <div className="absolute inset-0 rounded-[28px] border border-white/10 bg-white/[0.035] shadow-[0_32px_120px_rgba(15,23,42,0.55)] backdrop-blur-xl" />
-      <div className="relative rounded-[28px] border border-white/10 bg-white/[0.035] p-5 backdrop-blur-xl">
-      <div className="rounded-2xl border border-white/10 bg-[#020617]/80 p-4">
+      <div className="hero-command-shell relative rounded-[28px] border border-white/10 bg-white/[0.035] p-5 backdrop-blur-xl">
+      <div className="hero-audit-panel rounded-2xl border border-white/10 bg-[#020617]/80 p-4">
         <div className="flex items-center justify-between border-b border-white/10 pb-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#2563EB]/20 text-[#93C5FD]">
+            <div className="hero-terminal-icon flex h-10 w-10 items-center justify-center rounded-xl bg-[#2563EB]/20 text-[#93C5FD]">
               <Terminal size={18} />
             </div>
             <div>
@@ -104,11 +104,11 @@ function FairnessCommandCenter() {
               <div className="text-xs text-[#64748B] font-mono">model://credit-risk-v7</div>
             </div>
           </div>
-          <span className="rounded-full border border-[#10B981]/25 bg-[#10B981]/10 px-2.5 py-1 text-xs font-medium text-[#A7F3D0]">Scanning</span>
+          <span className="hero-scan-badge rounded-full border border-[#10B981]/25 bg-[#10B981]/10 px-2.5 py-1 text-xs font-medium text-[#A7F3D0]">Scanning</span>
         </div>
 
         <div className="mt-5 grid gap-4 md:grid-cols-[0.85fr_1.15fr]">
-          <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-5">
+          <div className="hero-glass-card rounded-2xl border border-white/10 bg-white/[0.035] p-5">
             <div className="mb-4 flex items-center justify-between text-xs uppercase tracking-wide text-[#94A3B8]">
               Risk score
               <ShieldCheck size={15} className="text-[#93C5FD]" />
@@ -116,7 +116,7 @@ function FairnessCommandCenter() {
             <div className="relative mx-auto flex h-36 w-36 items-center justify-center">
               <svg viewBox="0 0 120 120" className="absolute inset-0 h-full w-full -rotate-90">
                 <circle cx="60" cy="60" r="48" fill="none" stroke="#1E293B" strokeWidth="12" />
-                <circle cx="60" cy="60" r="48" fill="none" stroke="#F59E0B" strokeWidth="12" strokeDasharray="301" strokeDashoffset="86" strokeLinecap="round" />
+                <circle className="hero-risk-ring" cx="60" cy="60" r="48" fill="none" stroke="#F59E0B" strokeWidth="12" strokeDasharray="301" strokeDashoffset="86" strokeLinecap="round" />
               </svg>
               <div className="text-center">
                 <div className="font-mono text-4xl font-bold text-white">72</div>
@@ -125,7 +125,7 @@ function FairnessCommandCenter() {
             </div>
           </div>
 
-          <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.035] p-5">
+          <div className="hero-glass-card min-w-0 rounded-2xl border border-white/10 bg-white/[0.035] p-5">
             <div className="mb-4 flex items-center justify-between text-xs uppercase tracking-wide text-[#94A3B8]">
               Group comparison
               <BarChart3 size={15} className="text-[#93C5FD]" />
@@ -135,7 +135,7 @@ function FairnessCommandCenter() {
                 <div key={bar.group} className="flex flex-1 flex-col items-center gap-1.5">
                   <span className="text-[10px] font-mono text-[#CBD5E1]">{bar.rate}%</span>
                   <div
-                    className="w-full rounded-t-md"
+                    className="hero-bar w-full rounded-t-md"
                     style={{
                       height: `${bar.rate * 1.25}px`,
                       minHeight: 8,
@@ -157,14 +157,14 @@ function FairnessCommandCenter() {
         </div>
       </div>
 
-      <div className="mt-4 rounded-2xl border border-[#93C5FD]/15 bg-[#020617]/85 p-4 shadow-2xl shadow-blue-950/40 backdrop-blur-xl">
+      <div className="hero-trace-panel mt-4 rounded-2xl border border-[#93C5FD]/15 bg-[#020617]/85 p-4 shadow-2xl shadow-blue-950/40 backdrop-blur-xl">
         <div className="mb-3 flex items-center justify-between">
           <div className="text-sm font-semibold text-white">AI decision trace</div>
           <div className="text-xs text-[#93C5FD] font-mono">explainable</div>
         </div>
         <div className="grid grid-cols-5 gap-2">
           {['income', 'zip', 'school', 'race proxy', 'decision'].map((node, index) => (
-            <div key={node} className={`rounded-lg border px-2 py-2 text-center text-[10px] ${index === 3 ? 'border-[#EF4444]/40 bg-[#EF4444]/10 text-[#FECACA]' : 'border-white/10 bg-white/[0.04] text-[#CBD5E1]'}`}>
+            <div key={node} className={`hero-trace-node rounded-lg border px-2 py-2 text-center text-[10px] ${index === 3 ? 'border-[#EF4444]/40 bg-[#EF4444]/10 text-[#FECACA]' : 'border-white/10 bg-white/[0.04] text-[#CBD5E1]'}`}>
               {node}
             </div>
           ))}
@@ -181,7 +181,7 @@ function FairnessCommandCenter() {
 function MetricBadge({ label, value, tone }: { label: string; value: string; tone: 'risk' | 'warn' }) {
   const color = tone === 'risk' ? '#EF4444' : '#F59E0B';
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.035] p-3">
+    <div className="hero-metric-badge rounded-xl border border-white/10 bg-white/[0.035] p-3">
       <div className="text-[10px] text-[#94A3B8]">{label}</div>
       <div className="mt-1 font-mono text-lg font-bold" style={{ color }}>{value}</div>
     </div>

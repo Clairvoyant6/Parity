@@ -1,19 +1,16 @@
 import pandas as pd
 import numpy as np
-from aif360.datasets import BinaryLabelDataset
-from aif360.metrics import BinaryLabelDatasetMetric, ClassificationMetric
-from aif360.algorithms.preprocessing import Reweighing
+from pandas.api.types import is_numeric_dtype
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
-import shap
 import warnings
 
 warnings.filterwarnings('ignore')
 
 def compute_bias_metrics(df: pd.DataFrame, target_col: str, sensitive_cols: list) -> dict:
     """
-    Compute real fairness metrics using AIF360 framework.
+    Compute model-output fairness metrics with a deterministic baseline model.
     
     Returns:
         dict: Comprehensive bias metrics including:
@@ -26,194 +23,222 @@ def compute_bias_metrics(df: pd.DataFrame, target_col: str, sensitive_cols: list
             - demographic_parity_difference: DPD metric
             - disparate_impact_ratio: DI metric
     """
-    try:
-        # Validate inputs
-        if target_col not in df.columns:
-            raise ValueError(f"Target column '{target_col}' not found")
-        
-        for col in sensitive_cols:
-            if col not in df.columns:
-                raise ValueError(f"Sensitive column '{col}' not found")
-        
-        if len(df) < 10:
-            raise ValueError("Dataset too small (minimum 10 rows)")
-        
-        # Prepare data - encode categorical features
-        df_processed = df.copy()
-        label_encoders = {}
-        
-        # Encode target variable
-        if df_processed[target_col].dtype == 'object':
-            le_target = LabelEncoder()
-            df_processed[target_col] = le_target.fit_transform(df_processed[target_col])
-            label_encoders[target_col] = le_target
-        
-        # Encode sensitive attributes
-        for col in sensitive_cols:
-            if df_processed[col].dtype == 'object':
-                le = LabelEncoder()
-                df_processed[col] = le.fit_transform(df_processed[col])
-                label_encoders[col] = le
-        
-        # Ensure binary or numeric values
-        df_processed[target_col] = pd.to_numeric(df_processed[target_col], errors='coerce')
-        for col in sensitive_cols:
-            df_processed[col] = pd.to_numeric(df_processed[col], errors='coerce')
-        
-        # Drop NaN values
-        df_processed = df_processed.dropna(subset=[target_col] + sensitive_cols)
-        
-        if len(df_processed) == 0:
-            raise ValueError("No valid data after processing")
-        
-        # Train simple model for accuracy measurement
-        X = df_processed.drop(columns=[target_col] + sensitive_cols)
-        
-        # Select only numeric columns for model training
-        numeric_feature_cols = X.select_dtypes(include=[np.number]).columns.tolist()
-        X = X[numeric_feature_cols]
-        
-        y = df_processed[target_col].astype(int)
-        
-        # Handle case with single class
-        if len(y.unique()) < 2:
-            raise ValueError("Target variable must have at least 2 classes")
-        
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.3, random_state=42, stratify=y if len(y.unique()) > 1 else None
+    # Validate inputs
+    if target_col not in df.columns:
+        raise ValueError(f"Target column '{target_col}' not found")
+
+    for col in sensitive_cols:
+        if col not in df.columns:
+            raise ValueError(f"Sensitive column '{col}' not found")
+
+    if len(df) < 10:
+        raise ValueError("Dataset too small (minimum 10 rows)")
+
+    # Prepare data - encode categorical features
+    df_processed = df.copy()
+
+    # Encode target variable
+    if not is_numeric_dtype(df_processed[target_col]):
+        le_target = LabelEncoder()
+        df_processed[target_col] = le_target.fit_transform(df_processed[target_col])
+
+    # Encode sensitive attributes
+    for col in sensitive_cols:
+        if not is_numeric_dtype(df_processed[col]):
+            le = LabelEncoder()
+            df_processed[col] = le.fit_transform(df_processed[col])
+
+    # Ensure binary or numeric values
+    df_processed[target_col] = pd.to_numeric(df_processed[target_col], errors='coerce')
+    for col in sensitive_cols:
+        df_processed[col] = pd.to_numeric(df_processed[col], errors='coerce')
+
+    # Drop NaN values
+    df_processed = df_processed.dropna(subset=[target_col] + sensitive_cols)
+
+    if len(df_processed) == 0:
+        raise ValueError("No valid data after processing")
+
+    # Train simple model for accuracy measurement
+    feature_frame = df_processed.drop(columns=[target_col] + sensitive_cols)
+    if feature_frame.empty:
+        raise ValueError("No usable feature columns remain after removing target and sensitive columns")
+
+    # Encode categorical features so we can compute predictions on the full dataset.
+    X = pd.get_dummies(feature_frame, dummy_na=True)
+    if X.shape[1] == 0:
+        raise ValueError("No usable feature columns remain after encoding")
+
+    y = df_processed[target_col].astype(int)
+
+    # Handle case with single class
+    if len(y.unique()) < 2:
+        raise ValueError("Target variable must have at least 2 classes")
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.3, random_state=42, stratify=y if len(y.unique()) > 1 else None
+    )
+
+    rf_model = RandomForestClassifier(n_estimators=50, random_state=42, max_depth=10)
+    rf_model.fit(X_train, y_train)
+    model_accuracy = rf_model.score(X_test, y_test)
+
+    y_pred_full = pd.Series(rf_model.predict(X), index=df_processed.index)
+
+    # Compute fairness metrics for each sensitive attribute
+    group_metrics = {}
+    disparate_impacts = []
+    dpds = []
+    equalized_odds_values = []
+    predictive_parity_values = []
+
+    for sensitive_attr in sensitive_cols:
+        metrics = _compute_single_attribute_metrics(
+            df_processed, target_col, sensitive_attr, y_pred_full
         )
-        
-        rf_model = RandomForestClassifier(n_estimators=50, random_state=42, max_depth=10)
-        rf_model.fit(X_train, y_train)
-        model_accuracy = rf_model.score(X_test, y_test)
-        
-        # Compute fairness metrics for each sensitive attribute
-        group_metrics = {}
-        disparate_impacts = []
-        dpds = []
-        
-        for sensitive_attr in sensitive_cols:
-            metrics = _compute_single_attribute_metrics(
-                df_processed, target_col, sensitive_attr, rf_model, X_test, y_test
-            )
-            group_metrics[sensitive_attr] = metrics
-            
-            if 'disparate_impact_ratio' in metrics:
-                disparate_impacts.append(metrics['disparate_impact_ratio'])
-            if 'demographic_parity_difference' in metrics:
-                dpds.append(abs(metrics['demographic_parity_difference']))
-        
-        # Detect proxy variables
-        proxy_flags = detect_proxies(df_processed, sensitive_cols, target_col, rf_model)
-        
-        # Calculate overall bias risk score (0-100)
-        bias_risk_score = _calculate_risk_score(
-            group_metrics, proxy_flags, disparate_impacts, dpds
-        )
-        
-        # Determine risk level
-        if bias_risk_score >= 70:
-            risk_level = "HIGH"
-        elif bias_risk_score >= 40:
-            risk_level = "MEDIUM"
-        else:
-            risk_level = "LOW"
-        
-        # Get feature importance
-        feature_importance = dict(zip(
-            X.columns[:10],
-            rf_model.feature_importances_[:10]
-        ))
-        
-        return {
-            "bias_risk_score": round(bias_risk_score, 1),
-            "risk_level": risk_level,
-            "group_metrics": group_metrics,
-            "feature_importance": {k: round(v, 4) for k, v in feature_importance.items()},
-            "proxy_flags": proxy_flags[:3],  # Top 3 proxy flags
-            "model_accuracy": round(model_accuracy, 3),
-            "dataset_size": len(df),
-            "processed_size": len(df_processed),
-            "disparate_impact_avg": round(np.mean(disparate_impacts), 3) if disparate_impacts else 1.0,
-            "demographic_parity_avg": round(np.mean(dpds), 3) if dpds else 0.0,
-            "sensitive_attributes_analyzed": sensitive_cols,
-        }
-    
-    except Exception as e:
-        # Return fallback metrics on error
-        return {
-            "bias_risk_score": 50,
-            "risk_level": "MEDIUM",
-            "group_metrics": {},
-            "feature_importance": {},
-            "proxy_flags": [],
-            "model_accuracy": 0.5,
-            "dataset_size": len(df),
-            "error": str(e),
-            "sensitive_attributes_analyzed": sensitive_cols,
-        }
+        group_metrics[sensitive_attr] = metrics
+
+        if 'disparate_impact_ratio' in metrics:
+            disparate_impacts.append(metrics['disparate_impact_ratio'])
+        if 'demographic_parity_difference' in metrics:
+            dpds.append(abs(metrics['demographic_parity_difference']))
+        if 'equalized_odds' in metrics:
+            equalized_odds_values.append(metrics['equalized_odds'])
+        if 'predictive_parity' in metrics:
+            predictive_parity_values.append(metrics['predictive_parity'])
+
+    # Detect proxy variables
+    proxy_flags = detect_proxies(df_processed, sensitive_cols, target_col, rf_model)
+
+    # Calculate overall bias risk score (0-100)
+    bias_risk_score = _calculate_risk_score(
+        group_metrics, proxy_flags, disparate_impacts, dpds
+    )
+
+    # Determine risk level
+    if bias_risk_score >= 70:
+        risk_level = "HIGH"
+    elif bias_risk_score >= 40:
+        risk_level = "MEDIUM"
+    else:
+        risk_level = "LOW"
+
+    # Get feature importance
+    feature_importance = dict(zip(
+        X.columns[:10],
+        rf_model.feature_importances_[:10]
+    ))
+
+    equalized_odds = _aggregate_equalized_odds(equalized_odds_values)
+    predictive_parity = _aggregate_predictive_parity(predictive_parity_values)
+
+    disparate_impact_avg = round(np.mean(disparate_impacts), 3) if disparate_impacts else 1.0
+    demographic_parity_avg = round(np.mean(dpds), 3) if dpds else 0.0
+
+    return _normalize_metric_keys({
+        "bias_risk_score": round(bias_risk_score, 1),
+        "risk_level": risk_level,
+        "group_metrics": group_metrics,
+        "feature_importance": {k: round(v, 4) for k, v in feature_importance.items()},
+        "proxy_flags": proxy_flags[:3],  # Top 3 proxy flags
+        "model_accuracy": round(model_accuracy, 3),
+        "dataset_size": len(df),
+        "processed_size": len(df_processed),
+        "disparate_impact_avg": disparate_impact_avg,
+        "demographic_parity_avg": demographic_parity_avg,
+        "sensitive_attributes_analyzed": sensitive_cols,
+        "disparate_impact_ratio": disparate_impact_avg,
+        "demographic_parity_difference": demographic_parity_avg,
+        "equalized_odds": equalized_odds,
+        "predictive_parity": predictive_parity,
+    })
 
 
 def _compute_single_attribute_metrics(
     df: pd.DataFrame, 
     target_col: str, 
     sensitive_attr: str,
-    model,
-    X_test,
-    y_test
+    y_pred_full: pd.Series
 ) -> dict:
     """
     Compute fairness metrics for a single sensitive attribute.
     Calculates: Disparate Impact Ratio, Demographic Parity Difference, etc.
     """
-    try:
-        # Get predictions
-        y_pred = model.predict(X_test)
-        
-        # Group statistics
-        groups = df[sensitive_attr].unique()
-        metrics = {}
-        
-        positive_rates = []
-        
-        for group in groups:
-            group_mask = df[sensitive_attr] == group
-            group_target = df.loc[group_mask, target_col]
-            
-            if len(group_target) > 0:
-                positive_rate = group_target.mean()
-                positive_rates.append(positive_rate)
-                
-                metrics[f"group_{group}_positive_rate"] = round(positive_rate, 3)
-                metrics[f"group_{group}_size"] = int(group_mask.sum())
-        
-        # Calculate Disparate Impact Ratio (relative risk)
-        if len(positive_rates) >= 2:
-            positive_rates = [p for p in positive_rates if p > 0]
-            if len(positive_rates) >= 2:
-                # DI = favorable rate of disadvantaged group / favorable rate of advantaged group
-                min_rate = min(positive_rates)
-                max_rate = max(positive_rates)
-                di_ratio = min_rate / max_rate if max_rate > 0 else 1.0
-                metrics['disparate_impact_ratio'] = round(di_ratio, 3)
-                
-                # Flag if DI < 0.8 (80% rule)
-                if di_ratio < 0.8:
-                    metrics['di_violation'] = True
-        
-        # Demographic Parity Difference (difference in positive rates)
-        if len(positive_rates) >= 2:
-            dpd = max(positive_rates) - min(positive_rates)
-            metrics['demographic_parity_difference'] = round(dpd, 3)
-        
-        return metrics
-    
-    except Exception as e:
-        return {
-            "error": str(e),
-            "disparate_impact_ratio": 1.0,
-            "demographic_parity_difference": 0.0
+    # Group statistics
+    groups = [group for group in df[sensitive_attr].dropna().unique().tolist()]
+    metrics = {
+        "groups": {},
+    }
+
+    group_prediction_rates = []
+    group_actual_rates = []
+    group_tpr = []
+    group_fpr = []
+    group_precision = []
+
+    for group in groups:
+        group_mask = df[sensitive_attr] == group
+        group_df = df.loc[group_mask, [target_col]]
+        if group_mask.sum() == 0:
+            continue
+
+        y_true_group = df.loc[group_mask, target_col].astype(int)
+        y_pred_group = y_pred_full.loc[group_mask].astype(int)
+
+        prediction_rate = float(y_pred_group.mean()) if len(y_pred_group) else 0.0
+        actual_rate = float(y_true_group.mean()) if len(y_true_group) else 0.0
+
+        tp = int(((y_pred_group == 1) & (y_true_group == 1)).sum())
+        fp = int(((y_pred_group == 1) & (y_true_group == 0)).sum())
+        tn = int(((y_pred_group == 0) & (y_true_group == 0)).sum())
+        fn = int(((y_pred_group == 0) & (y_true_group == 1)).sum())
+
+        tpr = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+        fpr = fp / (fp + tn) if (fp + tn) > 0 else 0.0
+        precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+
+        group_prediction_rates.append(prediction_rate)
+        group_actual_rates.append(actual_rate)
+        group_tpr.append(tpr)
+        group_fpr.append(fpr)
+        group_precision.append(precision)
+
+        metrics["groups"][str(group)] = {
+            "count": int(group_mask.sum()),
+            "prediction_rate": round(prediction_rate, 3),
+            "positive_rate": round(prediction_rate, 3),  # legacy alias for report consumers
+            "actual_positive_rate": round(actual_rate, 3),
+            "true_positive_rate": round(tpr, 3),
+            "false_positive_rate": round(fpr, 3),
+            "predictive_parity": round(precision, 3),
         }
+
+    if len(group_prediction_rates) >= 2:
+        min_rate = min(group_prediction_rates)
+        max_rate = max(group_prediction_rates)
+        di_ratio = min_rate / max_rate if max_rate > 0 else 1.0
+        dpd = max_rate - min_rate
+        metrics['disparate_impact_ratio'] = round(di_ratio, 3)
+        metrics['demographic_parity_difference'] = round(dpd, 3)
+        metrics['disparate_impact'] = round(di_ratio, 3)
+        metrics['demographic_parity'] = round(dpd, 3)
+        if di_ratio < 0.8:
+            metrics['di_violation'] = True
+    else:
+        metrics['disparate_impact_ratio'] = 1.0
+        metrics['demographic_parity_difference'] = 0.0
+        metrics['disparate_impact'] = 1.0
+        metrics['demographic_parity'] = 0.0
+
+    metrics['equalized_odds'] = {
+        "true_positive_rate_difference": round(max(group_tpr) - min(group_tpr), 3) if len(group_tpr) >= 2 else 0.0,
+        "false_positive_rate_difference": round(max(group_fpr) - min(group_fpr), 3) if len(group_fpr) >= 2 else 0.0,
+    }
+    metrics['predictive_parity'] = {
+        "positive_predictive_value_difference": round(max(group_precision) - min(group_precision), 3) if len(group_precision) >= 2 else 0.0,
+    }
+
+    return metrics
 
 
 def detect_proxies(df: pd.DataFrame, sensitive_cols: list, target_col: str, model=None) -> list:
@@ -273,6 +298,8 @@ def detect_proxies(df: pd.DataFrame, sensitive_cols: list, target_col: str, mode
         # METHOD 2: SHAP-based proxy detection (if model provided)
         if model is not None:
             try:
+                import shap
+
                 # Select numeric features for model
                 X = df[feature_cols].fillna(df[feature_cols].mean())
                 
@@ -354,6 +381,14 @@ def detect_proxies(df: pd.DataFrame, sensitive_cols: list, target_col: str, mode
             x.get('correlation', 0),
             x.get('shap_differential_importance', 0)
         ), reverse=True)
+
+        for flag in proxy_flags:
+            flag.setdefault('correlation', 0.0)
+            flag.setdefault('shap_differential_importance', 0.0)
+            flag.setdefault(
+                'warning',
+                f"{flag.get('feature', 'Unknown feature')} correlates with {flag.get('sensitive_attribute', 'a sensitive attribute')}"
+            )
         
     except Exception as e:
         # Return empty list on error
@@ -396,6 +431,70 @@ def _calculate_risk_score(group_metrics: dict, proxy_flags: list,
         score += variation * 20
     
     return min(score, 100)
+
+
+def _aggregate_equalized_odds(values: list) -> dict:
+    if not values:
+        return {
+            "true_positive_rate_difference": 0.0,
+            "false_positive_rate_difference": 0.0,
+        }
+
+    tpr_diffs = [v.get("true_positive_rate_difference", 0.0) for v in values]
+    fpr_diffs = [v.get("false_positive_rate_difference", 0.0) for v in values]
+    return {
+        "true_positive_rate_difference": round(float(np.mean(tpr_diffs)), 3),
+        "false_positive_rate_difference": round(float(np.mean(fpr_diffs)), 3),
+    }
+
+
+def _aggregate_predictive_parity(values: list) -> dict:
+    if not values:
+        return {
+            "positive_predictive_value_difference": 0.0,
+        }
+
+    diffs = [v.get("positive_predictive_value_difference", 0.0) for v in values]
+    return {
+        "positive_predictive_value_difference": round(float(np.mean(diffs)), 3),
+    }
+
+
+def _normalize_metric_keys(metrics: dict) -> dict:
+    normalized = dict(metrics)
+
+    # Top-level aliases for legacy and normalized consumers.
+    normalized.setdefault("disparate_impact_ratio", normalized.get("disparate_impact_avg", 1.0))
+    normalized.setdefault("demographic_parity_difference", normalized.get("demographic_parity_avg", 0.0))
+    normalized.setdefault("disparate_impact", normalized["disparate_impact_ratio"])
+    normalized.setdefault("demographic_parity", normalized["demographic_parity_difference"])
+
+    if "equalized_odds" not in normalized:
+        normalized["equalized_odds"] = {
+            "true_positive_rate_difference": 0.0,
+            "false_positive_rate_difference": 0.0,
+        }
+
+    if "predictive_parity" not in normalized:
+        normalized["predictive_parity"] = {
+            "positive_predictive_value_difference": 0.0,
+        }
+
+    # Keep per-group metrics accessible through the normalized keys too.
+    group_metrics = normalized.get("group_metrics", {})
+    for attr_metrics in group_metrics.values():
+        if isinstance(attr_metrics, dict):
+            attr_metrics.setdefault("disparate_impact_ratio", attr_metrics.get("disparate_impact", 1.0))
+            attr_metrics.setdefault("demographic_parity_difference", attr_metrics.get("demographic_parity", 0.0))
+            attr_metrics.setdefault("equalized_odds", {
+                "true_positive_rate_difference": 0.0,
+                "false_positive_rate_difference": 0.0,
+            })
+            attr_metrics.setdefault("predictive_parity", {
+                "positive_predictive_value_difference": 0.0,
+            })
+
+    return normalized
 
 
 def recommend_mitigations(metrics: dict, df: pd.DataFrame, 

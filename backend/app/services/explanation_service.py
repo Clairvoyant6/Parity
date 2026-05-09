@@ -40,7 +40,7 @@ async def generate_explanation(
 
     group_text = ""
     for col, data in group_metrics.items():
-        di = data.get("disparate_impact", 1.0)
+        di = data.get("disparate_impact_ratio", data.get("disparate_impact", 1.0))
         dp = data.get("demographic_parity_difference", 0)
         group_text += f"\n- {col}: Disparate Impact = {di}, Demographic Parity Diff = {dp}"
 
@@ -193,13 +193,14 @@ def _retrieve_rag_context(
         query_parts = [risk_level.lower(), "fairness", "bias"]
         
         # Add metric-specific keywords
-        if metrics.get("disparate_impact", 1.0) < 0.8:
+        if metrics.get("disparate_impact_ratio", metrics.get("disparate_impact", 1.0)) < 0.8:
             query_parts.extend(["disparate impact", "80% rule"])
         
         if metrics.get("demographic_parity_difference", 0) > 0.1:
             query_parts.extend(["demographic parity"])
         
-        if metrics.get("false_positive_rate_difference", 0) > 0.15:
+        equalized_odds = metrics.get("equalized_odds", {})
+        if isinstance(equalized_odds, dict) and equalized_odds.get("false_positive_rate_difference", 0) > 0.15:
             query_parts.extend(["equalized odds", "false positive rate"])
         
         if risk_level == "HIGH":

@@ -27,7 +27,13 @@ export function ReportExport() {
   const r = analysisResult.results;
   const di = r.disparate_impact_ratio ?? r.disparate_impact_avg ?? 1;
   const dp = r.demographic_parity_difference ?? r.demographic_parity_avg ?? 0;
-  const eo = r.equalized_odds ?? 1;
+  const eoMaxDiff = r.equalized_odds
+    ? Math.max(
+        r.equalized_odds.true_positive_rate_difference,
+        r.equalized_odds.false_positive_rate_difference
+      )
+    : undefined;
+  const ppDiff = r.predictive_parity?.positive_predictive_value_difference;
 
   // Compliance checks derived from live metrics
   const complianceChecks = [
@@ -62,9 +68,16 @@ export function ReportExport() {
     {
       regulation: 'Equalized Odds',
       scope: 'Error rate parity',
-      check: 'Equalized Odds ≥ 0.8',
-      status: eo >= 0.8,
-      detail: `EO: ${eo.toFixed(3)}`,
+      check: 'Max TPR/FPR gap ≤ 20%',
+      status: eoMaxDiff === undefined ? null : eoMaxDiff <= 0.2,
+      detail: eoMaxDiff === undefined ? 'Not reported by backend' : `Max EO gap: ${eoMaxDiff.toFixed(3)}`,
+    },
+    {
+      regulation: 'Predictive Parity',
+      scope: 'Precision parity',
+      check: 'Precision gap ≤ 10%',
+      status: ppDiff === undefined ? null : ppDiff <= 0.1,
+      detail: ppDiff === undefined ? 'Not reported by backend' : `PPV gap: ${ppDiff.toFixed(3)}`,
     },
     {
       regulation: 'Model Accuracy',
@@ -94,7 +107,8 @@ export function ReportExport() {
       metrics: {
         disparateImpact: di,
         demographicParityDiff: dp,
-        equalizedOdds: eo,
+        equalizedOdds: r.equalized_odds ?? null,
+        predictiveParity: r.predictive_parity ?? null,
         modelAccuracy: r.model_accuracy,
       },
       proxyFlags: r.proxy_flags ?? [],
@@ -190,6 +204,18 @@ export function ReportExport() {
                 </div>
               ))}
             </div>
+            <div className="grid sm:grid-cols-2 gap-4 mb-4">
+              {[
+                { label: 'Equalized Odds Gap', value: eoMaxDiff !== undefined ? eoMaxDiff.toFixed(3) : 'N/A', note: eoMaxDiff !== undefined ? (eoMaxDiff <= 0.2 ? 'Within threshold' : 'Above threshold') : 'Not reported by backend', color: eoMaxDiff === undefined ? '#6B7280' : eoMaxDiff <= 0.2 ? '#10B981' : '#EF4444' },
+                { label: 'Predictive Parity Gap', value: ppDiff !== undefined ? ppDiff.toFixed(3) : 'N/A', note: ppDiff !== undefined ? (ppDiff <= 0.1 ? 'Within threshold' : 'Above threshold') : 'Not reported by backend', color: ppDiff === undefined ? '#6B7280' : ppDiff <= 0.1 ? '#10B981' : '#EF4444' },
+              ].map((m) => (
+                <div key={m.label} className="p-3 rounded-xl border border-[#E5E7EB] text-center bg-white">
+                  <div className="text-xs text-[#6B7280] mb-1" style={{ fontFamily: 'Inter, sans-serif' }}>{m.label}</div>
+                  <div className="text-lg font-bold mb-0.5" style={{ color: m.color, fontFamily: 'DM Sans, sans-serif' }}>{m.value}</div>
+                  <div className="text-xs font-medium" style={{ color: m.color, fontFamily: 'Inter, sans-serif' }}>{m.note}</div>
+                </div>
+              ))}
+            </div>
             {r.explanation && (
               <div className="bg-[#F9FAFB] border border-[#F3F4F6] rounded-lg p-4">
                 <p className="text-sm text-[#374151] leading-relaxed" style={{ fontFamily: 'Inter, sans-serif' }}>
@@ -231,7 +257,9 @@ export function ReportExport() {
             {complianceChecks.map((item) => (
               <div key={item.regulation} className="px-8 py-4 flex items-center gap-4">
                 <div className="flex-shrink-0">
-                  {item.status ? (
+                  {item.status === null ? (
+                    <AlertCircle size={20} style={{ color: '#9CA3AF' }} />
+                  ) : item.status ? (
                     <CheckCircle size={20} style={{ color: '#10B981' }} />
                   ) : (
                     <AlertCircle size={20} style={{ color: '#EF4444' }} />
@@ -245,8 +273,11 @@ export function ReportExport() {
                   <div className="text-xs text-[#6B7280] mt-0.5">{item.check}</div>
                 </div>
                 <div className="flex-shrink-0 text-right">
-                  <span className="text-xs font-medium px-2 py-1 rounded-full" style={{ backgroundColor: item.status ? '#ECFDF5' : '#FEF2F2', color: item.status ? '#10B981' : '#EF4444' }}>
-                    {item.status ? '✓ Pass' : '✗ Fail'}
+                  <span className="text-xs font-medium px-2 py-1 rounded-full" style={{
+                    backgroundColor: item.status === null ? '#F3F4F6' : item.status ? '#ECFDF5' : '#FEF2F2',
+                    color: item.status === null ? '#6B7280' : item.status ? '#10B981' : '#EF4444',
+                  }}>
+                    {item.status === null ? 'Not reported' : item.status ? '✓ Pass' : '✗ Fail'}
                   </span>
                   <div className="text-xs text-[#9CA3AF] mt-1 font-mono">{item.detail}</div>
                 </div>

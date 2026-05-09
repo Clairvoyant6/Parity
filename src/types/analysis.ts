@@ -7,13 +7,22 @@ export interface GroupMetric {
   count: number;
 }
 
+export interface EqualizedOddsMetric {
+  true_positive_rate_difference: number;
+  false_positive_rate_difference: number;
+}
+
+export interface PredictiveParityMetric {
+  positive_predictive_value_difference: number;
+}
+
 export interface BiasMetrics {
   bias_risk_score: number;           // 0–100
   risk_level: 'LOW' | 'MEDIUM' | 'HIGH';
   disparate_impact_ratio: number;    // threshold >0.8
   demographic_parity_difference: number; // threshold <0.2
-  equalized_odds: number;            // threshold >0.8
-  predictive_parity: number;         // threshold >0.9
+  equalized_odds?: EqualizedOddsMetric;
+  predictive_parity?: PredictiveParityMetric;
   model_accuracy: number;
   group_metrics: Record<string, GroupMetric[]>;
   feature_importance: Array<{ feature: string; shap_value: number }>;

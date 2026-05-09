@@ -50,13 +50,14 @@ export function Hero() {
                   <ArrowRight size={18} />
                 </PrimaryButton>
               </Link>
-              <button
+              <a
+                href="#features"
                 className="inline-flex items-center gap-2 px-8 py-3.5 rounded-lg border border-white/20 text-white hover:bg-white/10 transition-all duration-200"
                 style={{ fontFamily: 'Inter, sans-serif', fontSize: '1rem' }}
               >
                 <Play size={16} fill="white" />
                 See it in Action
-              </button>
+              </a>
             </div>
 
 

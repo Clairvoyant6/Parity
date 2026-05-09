@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react';
-import { useNavigate } from 'react-router';
+import { useState, useCallback, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router';
 import { useDropzone } from 'react-dropzone';
 import { Navbar } from '../components/Navbar';
 import { PrimaryButton } from '../components/ui/Button';
@@ -20,6 +20,7 @@ interface ColumnConfig {
 
 export function UploadPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const {
     setFile, setTargetColumn, setSensitiveColumns,
     setDomain, setAnalysisResult, setAvailableColumns,
@@ -31,7 +32,43 @@ export function UploadPage() {
   const [fileInfo, setFileInfo] = useState<{ rows: number; cols: number } | null>(null);
   const [columns, setColumns] = useState<ColumnConfig[]>([]);
   const [previewRows, setPreviewRows] = useState<Record<string, unknown>[]>([]);
-  const [selectedDomain, setSelectedDomain] = useState('general');
+  const onboardingMode = searchParams.get('mode');
+  const onboardingPreset = {
+    model: {
+      title: 'Audit a model',
+      domain: 'hiring',
+      eyebrow: 'Onboarding preset',
+      helper: 'We preselected Hiring so the flow starts with a concrete consequential-decisions lens. You can change the domain anytime before analysis.',
+    },
+    dataset: {
+      title: 'Check a dataset',
+      domain: 'general',
+      eyebrow: 'Onboarding preset',
+      helper: 'We preselected General so you can label the target and sensitive columns first, then switch to a domain-specific audit if needed.',
+    },
+    output: {
+      title: 'Understand an output',
+      domain: 'general',
+      eyebrow: 'Onboarding preset',
+      helper: 'We preselected General so you can inspect the decision first and then tune the audit for the source domain if you know it.',
+    },
+    groups: {
+      title: 'Compare groups',
+      domain: 'general',
+      eyebrow: 'Onboarding preset',
+      helper: 'We preselected General so the upload flow stays focused on group comparison and protected-attribute labeling.',
+    },
+    report: {
+      title: 'Generate a report',
+      domain: 'general',
+      eyebrow: 'Onboarding preset',
+      helper: 'We preselected General so you can gather audit evidence quickly before exporting the compliance report.',
+    },
+  } as const;
+  const activePreset = onboardingMode && onboardingMode in onboardingPreset
+    ? onboardingPreset[onboardingMode as keyof typeof onboardingPreset]
+    : null;
+  const [selectedDomain, setSelectedDomain] = useState(activePreset?.domain ?? 'general');
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [isAnalysing, setIsAnalysing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,6 +81,10 @@ export function UploadPage() {
     { value: 'criminal_justice', label: 'Criminal Justice' },
     { value: 'education', label: 'Education' },
   ];
+
+  useEffect(() => {
+    setSelectedDomain(activePreset?.domain ?? 'general');
+  }, [activePreset?.domain]);
 
   // File drop handler — calls /api/preview
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
@@ -181,6 +222,30 @@ export function UploadPage() {
             </div>
           ))}
         </div>
+
+        {activePreset && (
+          <div className="mb-8 rounded-2xl border border-[#BFDBFE] bg-[#EFF6FF] px-5 py-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-white text-[#2563EB] border border-[#BFDBFE]">
+                <Shield size={18} />
+              </div>
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-[#2563EB]" style={{ fontFamily: 'Inter, sans-serif' }}>
+                  {activePreset.eyebrow}
+                </div>
+                <div className="mt-0.5 text-sm font-semibold text-[#111827]" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+                  {activePreset.title}
+                </div>
+                <p className="mt-1 text-sm text-[#1D4ED8]" style={{ fontFamily: 'Inter, sans-serif' }}>
+                  {activePreset.helper}
+                </p>
+              </div>
+            </div>
+            <div className="text-xs font-medium text-[#1D4ED8] sm:text-right" style={{ fontFamily: 'Inter, sans-serif' }}>
+              Domain preset: <span className="font-semibold">{domains.find((d) => d.value === activePreset.domain)?.label ?? activePreset.domain}</span>
+            </div>
+          </div>
+        )}
 
         {/* Error banner */}
         {error && (
@@ -348,6 +413,11 @@ export function UploadPage() {
                       <option key={d.value} value={d.value}>{d.label}</option>
                     ))}
                   </select>
+                  {activePreset && (
+                    <p className="mt-2 text-xs text-[#6B7280]" style={{ fontFamily: 'Inter, sans-serif' }}>
+                      Preselected from onboarding: <strong>{activePreset.title}</strong>
+                    </p>
+                  )}
                 </div>
 
                 {/* Column labelling */}

@@ -1,14 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Navbar } from '../components/Navbar';
-import { MetricCard } from '../components/ui/MetricCard';
 import { ProgressRing } from '../components/ui/ProgressRing';
 import { PrimaryButton } from '../components/ui/Button';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell,
   ResponsiveContainer, BarChart as HBarChart,
 } from 'recharts';
-import { Download, ChevronRight, AlertTriangle, Info, ExternalLink, Loader2 } from 'lucide-react';
+import { Download, ChevronRight, AlertTriangle, Info, Loader2 } from 'lucide-react';
 import { useAnalysis } from '../../context/AnalysisContext';
 import { exportReport, triggerDownload } from '../../services/api';
 
@@ -79,16 +78,47 @@ export function AnalysisDashboard() {
   // ── Metric card values ─────────────────────────────────────────────
   const di = r.disparate_impact_ratio ?? r.disparate_impact_avg ?? 1;
   const dp = r.demographic_parity_difference ?? r.demographic_parity_avg ?? 0;
-  const eo = r.equalized_odds ?? 1;
-  const pp = r.predictive_parity ?? 1;
+  const eoMaxDiff = r.equalized_odds
+    ? Math.max(
+        r.equalized_odds.true_positive_rate_difference,
+        r.equalized_odds.false_positive_rate_difference
+      )
+    : undefined;
+  const ppDiff = r.predictive_parity?.positive_predictive_value_difference;
 
   const metrics = [
-    { label: 'Disparate Impact', value: di.toFixed(2), threshold: '>0.8', status: di < 0.8 ? 'risk' : 'fair' as const, icon: null },
-    { label: 'Demographic Parity Diff', value: dp.toFixed(2), threshold: '<0.2', status: dp > 0.2 ? 'risk' : 'fair' as const, icon: null },
-    { label: 'Equalized Odds', value: eo.toFixed(2), threshold: '>0.8', status: eo < 0.8 ? 'caution' : 'fair' as const, icon: null },
-    { label: 'Predictive Parity', value: pp.toFixed(2), threshold: '>0.9', status: pp < 0.9 ? 'caution' : 'fair' as const, icon: null },
+    {
+      label: 'Disparate Impact',
+      value: di.toFixed(2),
+      threshold: 'Target: >= 0.8',
+      status: di < 0.8 ? 'risk' : 'fair',
+      detail: di < 0.8 ? 'Below parity threshold' : 'Within threshold',
+    },
+    {
+      label: 'Demographic Parity Diff',
+      value: dp.toFixed(2),
+      threshold: 'Target: < 0.2',
+      status: dp > 0.2 ? 'risk' : 'fair',
+      detail: dp > 0.2 ? 'Gap remains large' : 'Within threshold',
+    },
+    {
+      label: 'Equalized Odds',
+      value: eoMaxDiff !== undefined ? eoMaxDiff.toFixed(2) : '—',
+      threshold: 'Max gap target: <= 0.2',
+      status: eoMaxDiff === undefined ? 'unavailable' : eoMaxDiff > 0.2 ? 'caution' : 'fair',
+      detail: eoMaxDiff === undefined ? 'Not reported by backend' : eoMaxDiff > 0.2 ? 'Error-rate gap needs review' : 'Within threshold',
+    },
+    {
+      label: 'Predictive Parity',
+      value: ppDiff !== undefined ? ppDiff.toFixed(2) : '—',
+      threshold: 'Precision gap target: <= 0.1',
+      status: ppDiff === undefined ? 'unavailable' : ppDiff > 0.1 ? 'caution' : 'fair',
+      detail: ppDiff === undefined ? 'Not reported by backend' : ppDiff > 0.1 ? 'Precision gap needs review' : 'Within threshold',
+    },
   ];
 
+  const unavailableMetrics = metrics.filter((m) => m.status === 'unavailable');
+  const riskMetrics = metrics.filter((m) => m.status === 'risk');
   const violations = metrics.filter((m) => m.status === 'risk').length;
 
   // ── Export PDF handler ─────────────────────────────────────────────
@@ -150,12 +180,13 @@ export function AnalysisDashboard() {
           </div>
           <div className="col-span-1 md:col-span-3 lg:col-span-4 grid grid-cols-2 lg:grid-cols-4 gap-4">
             {metrics.map((m) => (
-              <MetricCard
+              <FairnessMetricCard
                 key={m.label}
                 label={m.label}
                 value={m.value}
                 status={m.status}
-                description={`Threshold: ${m.threshold}`}
+                threshold={m.threshold}
+                detail={m.detail}
               />
             ))}
           </div>
@@ -237,46 +268,103 @@ export function AnalysisDashboard() {
             )}
           </div>
 
-          {/* Proxy Flags panel */}
-          <div className="lg:col-span-2 bg-white rounded-2xl border border-[#E5E7EB] p-6">
-            <h2 className="mb-4" style={{ fontFamily: 'DM Sans, sans-serif', fontWeight: 600, fontSize: '1.0625rem', color: '#111827' }}>
-              Proxy Feature Detection
-            </h2>
-            {(r.proxy_flags ?? []).length === 0 ? (
-              <div className="text-sm text-[#9CA3AF] flex items-center gap-2" style={{ fontFamily: 'Inter, sans-serif' }}>
-                <CheckCircle size={16} className="text-green-500" /> No high-risk proxy features detected.
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {(r.proxy_flags ?? []).map((flag, i) => (
-                  <div key={i} className="rounded-lg p-3 border" style={{
-                    backgroundColor: flag.risk_level === 'HIGH' ? '#FEF2F2' : '#FFFBEB',
-                    borderColor: flag.risk_level === 'HIGH' ? '#FECACA' : '#FDE68A',
-                  }}>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-bold" style={{ fontFamily: 'JetBrains Mono, monospace', color: flag.risk_level === 'HIGH' ? '#991B1B' : '#92400E' }}>
-                        {flag.feature}
-                      </span>
-                      <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{
-                        backgroundColor: flag.risk_level === 'HIGH' ? '#FEE2E2' : '#FEF3C7',
-                        color: flag.risk_level === 'HIGH' ? '#DC2626' : '#D97706',
-                      }}>
-                        {flag.risk_level}
-                      </span>
+          {/* Proxy Flags + readiness panels */}
+          <div className="lg:col-span-2 space-y-8">
+            <div className="bg-white rounded-2xl border border-[#E5E7EB] p-6">
+              <h2 className="mb-4" style={{ fontFamily: 'DM Sans, sans-serif', fontWeight: 600, fontSize: '1.0625rem', color: '#111827' }}>
+                Proxy Feature Detection
+              </h2>
+              {(r.proxy_flags ?? []).length === 0 ? (
+                <div className="text-sm text-[#9CA3AF] flex items-center gap-2" style={{ fontFamily: 'Inter, sans-serif' }}>
+                  <CheckCircle size={16} className="text-green-500" /> No high-risk proxy features detected.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {(r.proxy_flags ?? []).map((flag, i) => (
+                    <div key={i} className="rounded-lg p-3 border" style={{
+                      backgroundColor: flag.risk_level === 'HIGH' ? '#FEF2F2' : '#FFFBEB',
+                      borderColor: flag.risk_level === 'HIGH' ? '#FECACA' : '#FDE68A',
+                    }}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-bold" style={{ fontFamily: 'JetBrains Mono, monospace', color: flag.risk_level === 'HIGH' ? '#991B1B' : '#92400E' }}>
+                          {flag.feature}
+                        </span>
+                        <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{
+                          backgroundColor: flag.risk_level === 'HIGH' ? '#FEE2E2' : '#FEF3C7',
+                          color: flag.risk_level === 'HIGH' ? '#DC2626' : '#D97706',
+                        }}>
+                          {flag.risk_level}
+                        </span>
+                      </div>
+                      <p className="text-xs" style={{ fontFamily: 'Inter, sans-serif', color: '#6B7280' }}>
+                        Proxies <strong>{flag.sensitive_attribute}</strong>
+                        {flag.correlation ? ` (r=${flag.correlation.toFixed(2)})` : ''}
+                      </p>
                     </div>
-                    <p className="text-xs" style={{ fontFamily: 'Inter, sans-serif', color: '#6B7280' }}>
-                      Proxies <strong>{flag.sensitive_attribute}</strong>
-                      {flag.correlation ? ` (r=${flag.correlation.toFixed(2)})` : ''}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
 
-            <div className="mt-6 pt-4 border-t border-[#F3F4F6]">
-              <p className="text-xs text-[#9CA3AF]" style={{ fontFamily: 'Inter, sans-serif' }}>
-                Detected via Pearson correlation + SHAP differential importance
-              </p>
+              <div className="mt-6 pt-4 border-t border-[#F3F4F6]">
+                <p className="text-xs text-[#9CA3AF]" style={{ fontFamily: 'Inter, sans-serif' }}>
+                  Detected via Pearson correlation + SHAP differential importance
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-[#E5E7EB] p-6">
+              <div className="flex items-start justify-between gap-4 mb-4">
+                <div>
+                  <h2 style={{ fontFamily: 'DM Sans, sans-serif', fontWeight: 600, fontSize: '1.0625rem', color: '#111827' }}>
+                    Audit Readiness
+                  </h2>
+                  <p className="text-xs text-[#9CA3AF] mt-1" style={{ fontFamily: 'Inter, sans-serif' }}>
+                    Uses the metrics already returned by the analysis run. Missing values stay missing.
+                  </p>
+                </div>
+                <span
+                  className="text-xs font-medium px-2.5 py-1 rounded-full"
+                  style={{
+                    backgroundColor: unavailableMetrics.length > 0 ? '#F3F4F6' : riskMetrics.length > 0 ? '#FEF2F2' : '#ECFDF5',
+                    color: unavailableMetrics.length > 0 ? '#6B7280' : riskMetrics.length > 0 ? '#DC2626' : '#059669',
+                  }}
+                >
+                  {unavailableMetrics.length > 0 ? 'Evidence incomplete' : riskMetrics.length > 0 ? 'Mitigation required' : 'Ready for review'}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] p-3">
+                  <div className="text-xs text-[#6B7280] mb-1" style={{ fontFamily: 'Inter, sans-serif' }}>Reported metrics</div>
+                  <div className="text-2xl font-bold text-[#111827]" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+                    {metrics.length - unavailableMetrics.length}/{metrics.length}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] p-3">
+                  <div className="text-xs text-[#6B7280] mb-1" style={{ fontFamily: 'Inter, sans-serif' }}>Proxy flags</div>
+                  <div className="text-2xl font-bold text-[#111827]" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+                    {(r.proxy_flags ?? []).length}
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {unavailableMetrics.length > 0 && (
+                  <ReadinessStep tone="neutral" title="Close the evidence gap" body={unavailableMetrics.map((m) => m.label).join(' and ')} />
+                )}
+                {di < 0.8 && (
+                  <ReadinessStep tone="risk" title="Address representation imbalance" body="Disparate impact is below the threshold, so the demo should call out the affected groups before sign-off." />
+                )}
+                {dp > 0.2 && (
+                  <ReadinessStep tone="risk" title="Reduce parity spread" body="Demographic parity difference remains above the 20% guidance line." />
+                )}
+                {(r.proxy_flags ?? []).length > 0 && (
+                  <ReadinessStep tone="caution" title="Review proxy features" body={`${(r.proxy_flags ?? []).length} proxy feature(s) still correlate with protected attributes.`} />
+                )}
+                {unavailableMetrics.length === 0 && di >= 0.8 && dp <= 0.2 && (r.proxy_flags ?? []).length === 0 && (
+                  <ReadinessStep tone="fair" title="Ready to export" body="The current run has no reported metric gaps, no major parity violations, and no proxy warnings." />
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -398,6 +486,75 @@ function CheckCircle({ size, className }: { size: number; className?: string }) 
       <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M22 4 12 14.01l-3-3" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
+  );
+}
+
+function FairnessMetricCard({
+  label,
+  value,
+  status,
+  threshold,
+  detail,
+}: {
+  label: string;
+  value: string;
+  status: 'fair' | 'caution' | 'risk' | 'unavailable';
+  threshold: string;
+  detail: string;
+}) {
+  const config = {
+    fair: { color: '#10B981', bg: '#ECFDF5', border: '#A7F3D0', tag: 'Fair' },
+    caution: { color: '#F59E0B', bg: '#FFFBEB', border: '#FDE68A', tag: 'Caution' },
+    risk: { color: '#EF4444', bg: '#FEF2F2', border: '#FECACA', tag: 'Risk' },
+    unavailable: { color: '#6B7280', bg: '#F3F4F6', border: '#E5E7EB', tag: 'Unavailable' },
+  }[status];
+
+  return (
+    <div className="rounded-xl p-5 border bg-white" style={{ borderColor: config.border }}>
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <span className="text-xs font-medium text-[#6B7280] uppercase tracking-wide">{label}</span>
+        <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full" style={{ color: config.color, backgroundColor: config.bg }}>
+          <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: config.color }} />
+          {config.tag}
+        </span>
+      </div>
+      <div className="text-2xl font-bold font-mono" style={{ color: config.color, fontFamily: 'JetBrains Mono, monospace' }}>
+        {value}
+      </div>
+      <div className="text-xs text-[#6B7280] mt-1">{threshold}</div>
+      <div className="text-xs mt-2" style={{ color: config.color }}>
+        {detail}
+      </div>
+    </div>
+  );
+}
+
+function ReadinessStep({
+  tone,
+  title,
+  body,
+}: {
+  tone: 'fair' | 'caution' | 'risk' | 'neutral';
+  title: string;
+  body: string;
+}) {
+  const palette = {
+    fair: { dot: '#10B981', bg: '#ECFDF5', border: '#A7F3D0' },
+    caution: { dot: '#F59E0B', bg: '#FFFBEB', border: '#FDE68A' },
+    risk: { dot: '#EF4444', bg: '#FEF2F2', border: '#FECACA' },
+    neutral: { dot: '#6B7280', bg: '#F9FAFB', border: '#E5E7EB' },
+  }[tone];
+
+  return (
+    <div className="rounded-xl border px-4 py-3" style={{ backgroundColor: palette.bg, borderColor: palette.border }}>
+      <div className="flex items-start gap-3">
+        <span className="mt-1 h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: palette.dot }} />
+        <div>
+          <div className="text-sm font-semibold text-[#111827]" style={{ fontFamily: 'DM Sans, sans-serif' }}>{title}</div>
+          <p className="text-xs text-[#6B7280] mt-1" style={{ fontFamily: 'Inter, sans-serif' }}>{body}</p>
+        </div>
+      </div>
+    </div>
   );
 }
 

@@ -1,6 +1,30 @@
 from jinja2 import Template
 from datetime import datetime
 
+
+def _extract_group_rows(group_data: dict) -> list:
+    """Normalize current and legacy group metric schemas into table rows."""
+    if not isinstance(group_data, dict):
+        return []
+
+    if "groups" in group_data and isinstance(group_data["groups"], dict):
+        source = group_data["groups"]
+    else:
+        source = group_data
+
+    rows = []
+    for group_name, stats in source.items():
+        if not isinstance(stats, dict):
+            continue
+        rows.append({
+            "group_name": group_name,
+            "positive_rate": stats.get("positive_rate", stats.get("prediction_rate", "N/A")),
+            "true_positive_rate": stats.get("true_positive_rate", "N/A"),
+            "false_positive_rate": stats.get("false_positive_rate", "N/A"),
+            "count": stats.get("count", "N/A"),
+        })
+    return rows
+
 def generate_pdf_report(metrics: dict, filename: str, sensitive_cols: list, domain: str) -> bytes:
     """Generates a simple HTML report (convert to PDF with WeasyPrint)"""
     
@@ -46,20 +70,22 @@ def generate_pdf_report(metrics: dict, filename: str, sensitive_cols: list, doma
                 <th>False Positive Rate</th>
                 <th>Count</th>
             </tr>
-            {% for group_name, stats in data.groups.items() %}
+            {% for row in data.rows %}
             <tr>
-                <td>{{ group_name }}</td>
-                <td>{{ stats.positive_rate }}</td>
-                <td>{{ stats.true_positive_rate }}</td>
-                <td>{{ stats.false_positive_rate }}</td>
-                <td>{{ stats.count }}</td>
+                <td>{{ row.group_name }}</td>
+                <td>{{ row.positive_rate }}</td>
+                <td>{{ row.true_positive_rate }}</td>
+                <td>{{ row.false_positive_rate }}</td>
+                <td>{{ row.count }}</td>
             </tr>
             {% endfor %}
         </table>
         <div class="metric-card">
-            <strong>Disparate Impact:</strong> {{ data.disparate_impact }}
+            <strong>Disparate Impact:</strong> {{ data.disparate_impact_ratio }}
             (threshold: 0.8 — below this is a legal red flag)<br/>
-            <strong>Demographic Parity Difference:</strong> {{ data.demographic_parity_difference }}
+            <strong>Demographic Parity Difference:</strong> {{ data.demographic_parity_difference }}<br/>
+            <strong>Equalized Odds:</strong> {{ data.equalized_odds }}<br/>
+            <strong>Predictive Parity:</strong> {{ data.predictive_parity }}
         </div>
         {% endfor %}
 
@@ -106,8 +132,22 @@ def generate_pdf_report(metrics: dict, filename: str, sensitive_cols: list, doma
         risk_level=metrics["risk_level"],
         risk_color=risk_color,
         explanation=metrics.get("explanation", "N/A"),
-        group_metrics=metrics.get("group_metrics", {}),
-        proxy_flags=metrics.get("proxy_flags", []),
+        group_metrics={
+            col: {**data, "rows": _extract_group_rows(data)}
+            for col, data in metrics.get("group_metrics", {}).items()
+            if isinstance(data, dict)
+        },
+        proxy_flags=[
+            {
+                **flag,
+                "warning": flag.get(
+                    "warning",
+                    f"{flag.get('feature', 'Unknown feature')} correlates with {flag.get('sensitive_attribute', 'a sensitive attribute')}"
+                )
+            }
+            for flag in metrics.get("proxy_flags", [])
+            if isinstance(flag, dict)
+        ],
     )
 
     try:

@@ -27,9 +27,15 @@ app.add_middleware(
 app.include_router(router, prefix="/api")
 
 # Serve datasets directory
-datasets_dir = os.path.join(os.path.dirname(__file__), "datasets")
-if os.path.isdir(datasets_dir):
-    app.mount("/datasets", StaticFiles(directory=datasets_dir), name="datasets")
+project_root = os.path.dirname(os.path.dirname(__file__))
+datasets_candidates = [
+    os.path.join(project_root, "public", "datasets"),
+    os.path.join(os.path.dirname(__file__), "datasets"),
+]
+for datasets_dir in datasets_candidates:
+    if os.path.isdir(datasets_dir):
+        app.mount("/datasets", StaticFiles(directory=datasets_dir), name="datasets")
+        break
 
 # Production: Serve React Frontend
 # We look for the 'dist' folder which will be copied into the container
@@ -50,4 +56,3 @@ else:
     @app.get("/")
     def root():
         return {"message": "Parity API is running. (Frontend 'dist' not found, serving API only)"}
-

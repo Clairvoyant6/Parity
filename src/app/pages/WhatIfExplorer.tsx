@@ -25,6 +25,13 @@ export function WhatIfExplorer() {
   const [whatIfResult, setWhatIfResult] = useState<WhatIfResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    const nextFeature = allColumns.find((col) => col !== targetColumn) ?? '';
+    if (!selectedFeature || selectedFeature === targetColumn || !allColumns.includes(selectedFeature)) {
+      setSelectedFeature(nextFeature);
+    }
+  }, [allColumns, selectedFeature, targetColumn]);
+
   if (!analysisResult) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: '#F9FAFB' }}>
@@ -57,7 +64,7 @@ export function WhatIfExplorer() {
   }
 
   function handleReset() {
-    setSelectedFeature(allColumns[0] ?? '');
+    setSelectedFeature(allColumns.find((col) => col !== targetColumn) ?? '');
     setOriginalValue('');
     setNewValue('');
     setWhatIfResult(null);

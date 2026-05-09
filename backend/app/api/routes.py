@@ -1,5 +1,5 @@
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 import pandas as pd
 import json
 import io
@@ -122,12 +122,18 @@ async def what_if_analysis(
     sens_cols = [c.strip() for c in sensitive_columns.split(",")]
 
     # Original analysis
-    original_metrics = compute_bias_metrics(df.copy(), target_column, sens_cols)
+    try:
+        original_metrics = compute_bias_metrics(df.copy(), target_column, sens_cols)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Bias computation failed: {str(e)}")
 
     # Modified analysis
     df_modified = df.copy()
     df_modified[changed_feature] = df_modified[changed_feature].replace(original_value, new_value)
-    modified_metrics = compute_bias_metrics(df_modified, target_column, sens_cols)
+    try:
+        modified_metrics = compute_bias_metrics(df_modified, target_column, sens_cols)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Bias computation failed: {str(e)}")
 
     return {
         "changed_feature": changed_feature,
@@ -162,7 +168,6 @@ def list_datasets():
             }
         ]
     }
-from fastapi.responses import Response
 from app.services.report_service import generate_pdf_report
 
 @router.post("/export-report")
@@ -176,11 +181,22 @@ async def export_report(
     contents = await file.read()
     df = pd.read_csv(io.StringIO(contents.decode("utf-8")))
     sens_cols = [c.strip() for c in sensitive_columns.split(",")]
-    
-    metrics = compute_bias_metrics(df, target_column, sens_cols)
-    explanation = await generate_explanation(metrics, sens_cols, domain)
-    metrics["explanation"] = explanation
-    
+
+    try:
+        metrics = compute_bias_metrics(df, target_column, sens_cols)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Bias computation failed: {str(e)}")
+
+    explanation_result = await generate_explanation(metrics, sens_cols, domain)
+    if isinstance(explanation_result, dict):
+        metrics["explanation"] = explanation_result.get("explanation", "")
+        metrics["citations"] = explanation_result.get("citations", [])
+        metrics["sources"] = explanation_result.get("sources", [])
+    else:
+        metrics["explanation"] = explanation_result
+        metrics["citations"] = []
+        metrics["sources"] = []
+
     pdf_bytes = generate_pdf_report(metrics, file.filename, sens_cols, domain)
     
     return Response(

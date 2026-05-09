@@ -25,7 +25,7 @@ export interface BiasMetrics {
   predictive_parity?: PredictiveParityMetric;
   model_accuracy: number;
   group_metrics: Record<string, GroupMetric[]>;
-  feature_importance: Array<{ feature: string; shap_value: number }>;
+  feature_importance: Array<{ feature: string; shap_value: number }> | Record<string, number>;
   proxy_flags: Array<{
     feature: string;
     sensitive_attribute: string;

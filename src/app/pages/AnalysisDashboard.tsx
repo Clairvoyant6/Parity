@@ -14,6 +14,7 @@ import { exportReport, triggerDownload } from '../../services/api';
 export function AnalysisDashboard() {
   const { analysisResult, file, targetColumn, sensitiveColumns, domain } = useAnalysis();
   const [showExplanation, setShowExplanation] = useState(false);
+  const [showGroupChartHelp, setShowGroupChartHelp] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
   if (!analysisResult) {
@@ -61,7 +62,7 @@ export function AnalysisDashboard() {
     .map((fi) => ({
       feature: fi.feature ?? Object.keys(fi)[0],
       importance: fi.shap_value ?? (Object.values(fi)[0] as number),
-      bias: (r.proxy_flags ?? []).some((p) => p.feature === (fi.feature ?? Object.keys(fi)[0])),
+      isProxy: (r.proxy_flags ?? []).some((p) => p.feature === (fi.feature ?? Object.keys(fi)[0])),
     }))
     .sort((a, b) => b.importance - a.importance)
     .slice(0, 8);
@@ -277,13 +278,24 @@ export function AnalysisDashboard() {
               <h2 style={{ fontFamily: 'DM Sans, sans-serif', fontWeight: 600, fontSize: '1.0625rem', color: '#111827' }}>
                 Group Comparison — Positive Prediction Rate
               </h2>
-              <button className="text-xs text-[#6B7280] hover:text-[#374151] flex items-center gap-1" style={{ fontFamily: 'Inter, sans-serif' }}>
+              <button
+                type="button"
+                onClick={() => setShowGroupChartHelp((value) => !value)}
+                aria-expanded={showGroupChartHelp}
+                className="text-xs text-[#6B7280] hover:text-[#374151] flex items-center gap-1"
+                style={{ fontFamily: 'Inter, sans-serif' }}
+              >
                 <Info size={12} /> How to read
               </button>
             </div>
             <p className="text-xs text-[#9CA3AF] mb-6" style={{ fontFamily: 'Inter, sans-serif' }}>
               Dashed line = 80% of majority group rate (legal threshold). Bars below indicate potential violations.
             </p>
+            {showGroupChartHelp && (
+              <div className="mb-5 rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] p-4 text-sm text-[#1D4ED8]" style={{ fontFamily: 'Inter, sans-serif' }}>
+                Compare each group against the highest positive prediction rate. Blue bars are close to the leading group, amber bars need review, and red bars indicate a material gap that should be investigated before export.
+              </div>
+            )}
             {groupChartData.length > 0 ? (
               <>
                 <ResponsiveContainer width="100%" height={260}>
@@ -461,7 +473,7 @@ export function AnalysisDashboard() {
                   type="category"
                   dataKey="feature"
                   tick={({ x, y, payload }) => {
-                    const isProxy = shapData.find((d) => d.feature === payload.value)?.bias;
+                    const isProxy = shapData.find((d) => d.feature === payload.value)?.isProxy;
                     return (
                       <g>
                         {isProxy && <text x={x - 96} y={y} textAnchor="start" dominantBaseline="middle" fontSize={10} fill="#F59E0B">⚠</text>}
@@ -476,7 +488,7 @@ export function AnalysisDashboard() {
                 <Tooltip formatter={(v: number) => [v.toFixed(4), 'Importance']} contentStyle={{ fontFamily: 'Inter', fontSize: 12, borderRadius: 8, border: '1px solid #E5E7EB' }} />
                 <Bar dataKey="importance" radius={[0, 4, 4, 0]}>
                   {shapData.map((entry, i) => (
-                    <Cell key={i} fill={entry.bias ? '#EF4444' : '#3B82F6'} />
+                    <Cell key={i} fill={entry.isProxy ? '#EF4444' : '#3B82F6'} />
                   ))}
                 </Bar>
               </HBarChart>

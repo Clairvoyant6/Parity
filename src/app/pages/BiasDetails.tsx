@@ -41,7 +41,11 @@ export function BiasDetails() {
   }
 
   // Feature importance for the "Why" panel
-  const shapFeatures = (r.feature_importance ?? [])
+  const featureImportanceEntries = Array.isArray(r.feature_importance)
+    ? r.feature_importance
+    : Object.entries(r.feature_importance ?? {}).map(([feature, shap_value]) => ({ feature, shap_value }));
+
+  const shapFeatures = featureImportanceEntries
     .map((fi) => ({ name: fi.feature ?? Object.keys(fi)[0], value: fi.shap_value ?? (Object.values(fi)[0] as number) }))
     .sort((a, b) => b.value - a.value)
     .slice(0, 10);

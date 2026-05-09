@@ -60,6 +60,8 @@ export function UploadPage() {
     demoDatasetFile,
     analysisResult,
     domain,
+    targetColumn,
+    sensitiveColumns,
     setFile,
     setDemoDatasetFile,
     setTargetColumn,
@@ -133,8 +135,10 @@ export function UploadPage() {
   ];
 
   useEffect(() => {
-    if (domain) setSelectedDomain(domain);
-  }, [domain]);
+    if (!activePreset && domain && domain !== selectedDomain) {
+      setSelectedDomain(domain);
+    }
+  }, [activePreset, domain, selectedDomain]);
 
   useEffect(() => {
     let cancelled = false;
@@ -228,18 +232,25 @@ export function UploadPage() {
     );
   }
 
-  const targetCol = columns.find((c) => c.role === 'target')?.name ?? '';
-  const protectedCols = columns.filter((c) => c.role === 'protected').map((c) => c.name);
+  const targetCol = useMemo(() => columns.find((c) => c.role === 'target')?.name ?? '', [columns]);
+  const protectedCols = useMemo(() => columns.filter((c) => c.role === 'protected').map((c) => c.name), [columns]);
+  const protectedColsKey = protectedCols.join('|');
   const canRunAnalysis = !!localFile && !!targetCol && protectedCols.length > 0;
 
   useEffect(() => {
-    setTargetColumn(targetCol);
-    setSensitiveColumns(protectedCols);
-  }, [targetCol, protectedCols.join('|'), setSensitiveColumns, setTargetColumn]);
+    if (targetColumn !== targetCol) {
+      setTargetColumn(targetCol);
+    }
+    if (sensitiveColumns.join('|') !== protectedColsKey) {
+      setSensitiveColumns(protectedCols);
+    }
+  }, [protectedCols, protectedColsKey, sensitiveColumns, setSensitiveColumns, setTargetColumn, targetCol, targetColumn]);
 
   useEffect(() => {
-    if (selectedDomain) setDomain(selectedDomain);
-  }, [selectedDomain, setDomain]);
+    if (selectedDomain && domain !== selectedDomain) {
+      setDomain(selectedDomain);
+    }
+  }, [domain, selectedDomain, setDomain]);
 
   async function handleRunAnalysis() {
     if (!canRunAnalysis) return;

@@ -54,6 +54,46 @@ const DEFAULT_DEMO_DATASETS: DemoDatasetCatalogItem[] = [
     suggested_target: 'passed',
     suggested_sensitive: ['socioeconomic_status'],
   },
+  {
+    name: 'Resume Screening',
+    description: 'Synthetic hiring-screening dataset for interview selection fairness checks.',
+    domain: 'hiring',
+    file: 'resume-screening.csv',
+    suggested_target: 'interviewed',
+    suggested_sensitive: ['gender', 'ethnicity'],
+  },
+  {
+    name: 'Mortgage Approval',
+    description: 'Synthetic mortgage approval dataset with credit, income, and demographic attributes.',
+    domain: 'lending',
+    file: 'mortgage-approval.csv',
+    suggested_target: 'approved',
+    suggested_sensitive: ['race', 'age_band'],
+  },
+  {
+    name: 'Sepsis Triage',
+    description: 'Synthetic clinical triage dataset for high-priority care allocation audits.',
+    domain: 'healthcare',
+    file: 'sepsis-triage.csv',
+    suggested_target: 'high_priority',
+    suggested_sensitive: ['sex', 'race', 'insurance_type'],
+  },
+  {
+    name: 'Scholarship Awards',
+    description: 'Synthetic education funding dataset for first-generation and income-band fairness analysis.',
+    domain: 'education',
+    file: 'scholarship-awards.csv',
+    suggested_target: 'awarded',
+    suggested_sensitive: ['first_gen', 'income_band'],
+  },
+  {
+    name: 'Fraud Manual Review',
+    description: 'Synthetic transaction-review dataset for operational fairness across regions and language groups.',
+    domain: 'general',
+    file: 'fraud-review.csv',
+    suggested_target: 'manual_review',
+    suggested_sensitive: ['region', 'language_group'],
+  },
 ];
 
 function normalizeSensitiveColumns(value: string | string[] | undefined): string[] {

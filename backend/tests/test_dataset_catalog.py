@@ -5,13 +5,18 @@ def test_dataset_catalog_returns_all_public_csvs(client):
     payload = response.json()
     datasets = payload["datasets"]
 
-    assert len(datasets) == 5
+    assert len(datasets) == 10
 
     expected_files = {
         "adult-income.csv",
         "compas-scores-two-years.csv",
+        "fraud-review.csv",
         "german-credit.csv",
         "heart-disease.csv",
+        "mortgage-approval.csv",
+        "resume-screening.csv",
+        "scholarship-awards.csv",
+        "sepsis-triage.csv",
         "student-performance.csv",
     }
     assert {dataset["filename"] for dataset in datasets} == expected_files

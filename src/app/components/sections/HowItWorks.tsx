@@ -32,7 +32,7 @@ const steps = [
 
 export function HowItWorks() {
   return (
-    <section className="py-24 bg-white">
+    <section className="py-28 bg-white">
       <div className="max-w-7xl mx-auto px-6">
         <div className="text-center mb-16">
           <SectionLabel text="How It Works" className="justify-center mb-4" />
@@ -40,8 +40,11 @@ export function HowItWorks() {
             className="tracking-tight"
             style={{ fontFamily: 'DM Sans, sans-serif', fontWeight: 700, fontSize: 'clamp(2rem, 4vw, 3rem)', color: '#111827' }}
           >
-            Three steps to fairness.
+            From dataset to evidence in minutes.
           </h2>
+          <p className="mt-4 max-w-2xl mx-auto" style={{ fontFamily: 'Inter, sans-serif', color: '#6B7280', fontSize: '1.0625rem' }}>
+            Keep the workflow simple, but make every result defensible enough for product, legal, and ML review.
+          </p>
         </div>
 
         {/* Steps */}
@@ -95,7 +98,7 @@ export function HowItWorks() {
         </div>
 
         {/* Dashboard Preview */}
-        <div className="mt-16 rounded-2xl overflow-hidden border border-[#E5E7EB] shadow-xl">
+        <div className="mt-16 rounded-2xl overflow-hidden border border-[#D8E3F8] shadow-2xl shadow-blue-900/10">
           <div className="bg-[#1E3A5F] px-4 py-3 flex items-center gap-2">
             <div className="flex gap-1.5">
               <div className="w-3 h-3 rounded-full bg-[#EF4444]" />

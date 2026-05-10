@@ -18,22 +18,30 @@ export function Navbar({ variant = 'marketing' }: NavbarProps) {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const marketingLinks = [
-    { label: 'About Us', href: '/' },
-    { label: 'Features', href: '#features' },
-    { label: 'Domains', href: '#domains' },
-    { label: 'Research', href: '#research' },
-    { label: 'Dashboard', href: '/app/upload' },
-  ];
+  const links =
+    variant === 'app'
+      ? [
+          { label: 'Upload', to: '/app/upload' },
+          { label: 'Analysis', to: '/app/analysis' },
+          { label: 'What-If', to: '/app/analysis/whatif' },
+          { label: 'Report', to: '/app/analysis/report' },
+        ]
+      : [
+          { label: 'Features', href: '#features' },
+          { label: 'Domains', href: '#domains' },
+          { label: 'Research', href: '#research' },
+          { label: 'Start Audit', to: '/app/onboard' },
+        ];
 
-  const appLinks = [
-    { label: 'About Us', href: '/' },
-    { label: 'Upload', href: '/app/upload' },
-    { label: 'Docs', href: '#' },
-    { label: 'Dashboard', href: '/app/upload' },
-  ];
-
-  const links = variant === 'app' ? appLinks : marketingLinks;
+  const isActive = (hrefOrTo: { href?: string; to?: string }) => {
+    if (variant !== 'app') return false;
+    const current = location.pathname;
+    if (hrefOrTo.to === '/app/upload') return current === '/app/upload';
+    if (hrefOrTo.to === '/app/analysis') return current.startsWith('/app/analysis') && !current.startsWith('/app/analysis/whatif') && !current.startsWith('/app/analysis/report') && !current.startsWith('/app/analysis/details');
+    if (hrefOrTo.to === '/app/analysis/whatif') return current === '/app/analysis/whatif';
+    if (hrefOrTo.to === '/app/analysis/report') return current === '/app/analysis/report';
+    return false;
+  };
 
   return (
     <nav
@@ -45,7 +53,7 @@ export function Navbar({ variant = 'marketing' }: NavbarProps) {
     >
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-2.5">
+        <Link to="/" className="nav-brand-hover flex items-center gap-2.5">
           <BalanceScaleIcon />
           <span
             className="text-xl font-bold tracking-tight"
@@ -61,18 +69,33 @@ export function Navbar({ variant = 'marketing' }: NavbarProps) {
         {/* Desktop Nav Links */}
         <div className="hidden md:flex items-center gap-8">
           {links.map((link) => (
-            <a
-              key={link.label}
-              href={link.href}
-              className={`text-sm font-medium transition-colors duration-200 ${
-                scrolled || variant === 'app'
-                  ? 'text-[#6B7280] hover:text-[#111827]'
-                  : 'text-white/70 hover:text-white'
-              }`}
-              style={{ fontFamily: 'Inter, sans-serif' }}
-            >
-              {link.label}
-            </a>
+            link.to ? (
+              <Link
+                key={link.label}
+                to={link.to}
+                className={`nav-link-hover text-sm font-medium transition-colors duration-200 ${
+                  isActive(link) || scrolled || variant === 'app'
+                    ? 'text-[#374151] hover:text-[#111827]'
+                    : 'text-white/70 hover:text-white'
+                }`}
+                style={{ fontFamily: 'Inter, sans-serif' }}
+              >
+                {link.label}
+              </Link>
+            ) : (
+              <a
+                key={link.label}
+                href={link.href}
+                className={`nav-link-hover text-sm font-medium transition-colors duration-200 ${
+                  scrolled || variant === 'app'
+                    ? 'text-[#6B7280] hover:text-[#111827]'
+                    : 'text-white/70 hover:text-white'
+                }`}
+                style={{ fontFamily: 'Inter, sans-serif' }}
+              >
+                {link.label}
+              </a>
+            )
           ))}
         </div>
 
@@ -82,7 +105,7 @@ export function Navbar({ variant = 'marketing' }: NavbarProps) {
             <>
               <Link
                 to="/app/onboard"
-                className={`text-sm font-medium transition-colors ${
+                className={`nav-link-hover text-sm font-medium transition-colors ${
                   scrolled ? 'text-[#6B7280] hover:text-[#111827]' : 'text-white/70 hover:text-white'
                 }`}
                 style={{ fontFamily: 'Inter, sans-serif' }}
@@ -115,14 +138,25 @@ export function Navbar({ variant = 'marketing' }: NavbarProps) {
       {mobileOpen && (
         <div className="md:hidden bg-white border-t border-[#E5E7EB] px-6 py-4 flex flex-col gap-4">
           {links.map((link) => (
-            <a
-              key={link.label}
-              href={link.href}
-              className="text-sm font-medium text-[#374151] hover:text-[#2563EB]"
-              onClick={() => setMobileOpen(false)}
-            >
-              {link.label}
-            </a>
+            link.to ? (
+              <Link
+                key={link.label}
+                to={link.to}
+                className="text-sm font-medium text-[#374151] hover:text-[#2563EB]"
+                onClick={() => setMobileOpen(false)}
+              >
+                {link.label}
+              </Link>
+            ) : (
+              <a
+                key={link.label}
+                href={link.href}
+                className="text-sm font-medium text-[#374151] hover:text-[#2563EB]"
+                onClick={() => setMobileOpen(false)}
+              >
+                {link.label}
+              </a>
+            )
           ))}
           <Link to="/app/onboard">
             <PrimaryButton className="w-full justify-center">Try Free</PrimaryButton>

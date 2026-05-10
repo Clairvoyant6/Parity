@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { useState } from 'react';
+import { Link } from 'react-router';
 import { Navbar } from '../components/Navbar';
 import { PrimaryButton } from '../components/ui/Button';
 import { ChevronLeft, Download, Code, Copy, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
@@ -7,27 +7,26 @@ import { useAnalysis } from '../../context/AnalysisContext';
 import { exportReport, triggerDownload } from '../../services/api';
 
 export function ReportExport() {
-  const navigate = useNavigate();
   const { analysisResult, file, targetColumn, sensitiveColumns, domain } = useAnalysis();
   const [copied, setCopied] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
-  useEffect(() => {
-    if (!analysisResult) navigate('/app/upload');
-  }, [analysisResult, navigate]);
-
   if (!analysisResult) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#F9FAFB' }}>
-        <Loader2 size={32} className="animate-spin text-blue-500" />
-      </div>
+      <RecoveryEmptyState />
     );
   }
 
   const r = analysisResult.results;
   const di = r.disparate_impact_ratio ?? r.disparate_impact_avg ?? 1;
   const dp = r.demographic_parity_difference ?? r.demographic_parity_avg ?? 0;
-  const eo = r.equalized_odds ?? 1;
+  const eoMaxDiff = r.equalized_odds
+    ? Math.max(
+        r.equalized_odds.true_positive_rate_difference,
+        r.equalized_odds.false_positive_rate_difference
+      )
+    : undefined;
+  const ppDiff = r.predictive_parity?.positive_predictive_value_difference;
 
   // Compliance checks derived from live metrics
   const complianceChecks = [
@@ -62,9 +61,16 @@ export function ReportExport() {
     {
       regulation: 'Equalized Odds',
       scope: 'Error rate parity',
-      check: 'Equalized Odds ≥ 0.8',
-      status: eo >= 0.8,
-      detail: `EO: ${eo.toFixed(3)}`,
+      check: 'Max TPR/FPR gap ≤ 20%',
+      status: eoMaxDiff === undefined ? null : eoMaxDiff <= 0.2,
+      detail: eoMaxDiff === undefined ? 'Not reported by backend' : `Max EO gap: ${eoMaxDiff.toFixed(3)}`,
+    },
+    {
+      regulation: 'Predictive Parity',
+      scope: 'Precision parity',
+      check: 'Precision gap ≤ 10%',
+      status: ppDiff === undefined ? null : ppDiff <= 0.1,
+      detail: ppDiff === undefined ? 'Not reported by backend' : `PPV gap: ${ppDiff.toFixed(3)}`,
     },
     {
       regulation: 'Model Accuracy',
@@ -94,7 +100,8 @@ export function ReportExport() {
       metrics: {
         disparateImpact: di,
         demographicParityDiff: dp,
-        equalizedOdds: eo,
+        equalizedOdds: r.equalized_odds ?? null,
+        predictiveParity: r.predictive_parity ?? null,
         modelAccuracy: r.model_accuracy,
       },
       proxyFlags: r.proxy_flags ?? [],
@@ -154,6 +161,12 @@ export function ReportExport() {
           </div>
         </div>
 
+        {!file && (
+          <div className="mb-6 rounded-xl border border-[#FDE68A] bg-[#FFFBEB] px-4 py-3 text-sm text-[#92400E]" style={{ fontFamily: 'Inter, sans-serif' }}>
+            The saved analysis summary is available, but the source CSV is not in memory. Re-upload the original file or load a demo dataset to re-enable PDF export.
+          </div>
+        )}
+
         {/* Report Preview */}
         <div className="bg-white rounded-2xl border border-[#E5E7EB] overflow-hidden shadow-sm mb-8">
           {/* Header */}
@@ -187,6 +200,18 @@ export function ReportExport() {
                   <div className="text-xl font-bold mb-0.5" style={{ color: m.color, fontFamily: 'DM Sans, sans-serif' }}>{m.value}</div>
                   <div className="text-xs text-[#6B7280]" style={{ fontFamily: 'Inter, sans-serif' }}>{m.label}</div>
                   <div className="text-xs font-medium mt-1" style={{ color: m.color, fontFamily: 'Inter, sans-serif' }}>{m.note}</div>
+                </div>
+              ))}
+            </div>
+            <div className="grid sm:grid-cols-2 gap-4 mb-4">
+              {[
+                { label: 'Equalized Odds Gap', value: eoMaxDiff !== undefined ? eoMaxDiff.toFixed(3) : 'N/A', note: eoMaxDiff !== undefined ? (eoMaxDiff <= 0.2 ? 'Within threshold' : 'Above threshold') : 'Not reported by backend', color: eoMaxDiff === undefined ? '#6B7280' : eoMaxDiff <= 0.2 ? '#10B981' : '#EF4444' },
+                { label: 'Predictive Parity Gap', value: ppDiff !== undefined ? ppDiff.toFixed(3) : 'N/A', note: ppDiff !== undefined ? (ppDiff <= 0.1 ? 'Within threshold' : 'Above threshold') : 'Not reported by backend', color: ppDiff === undefined ? '#6B7280' : ppDiff <= 0.1 ? '#10B981' : '#EF4444' },
+              ].map((m) => (
+                <div key={m.label} className="p-3 rounded-xl border border-[#E5E7EB] text-center bg-white">
+                  <div className="text-xs text-[#6B7280] mb-1" style={{ fontFamily: 'Inter, sans-serif' }}>{m.label}</div>
+                  <div className="text-lg font-bold mb-0.5" style={{ color: m.color, fontFamily: 'DM Sans, sans-serif' }}>{m.value}</div>
+                  <div className="text-xs font-medium" style={{ color: m.color, fontFamily: 'Inter, sans-serif' }}>{m.note}</div>
                 </div>
               ))}
             </div>
@@ -231,7 +256,9 @@ export function ReportExport() {
             {complianceChecks.map((item) => (
               <div key={item.regulation} className="px-8 py-4 flex items-center gap-4">
                 <div className="flex-shrink-0">
-                  {item.status ? (
+                  {item.status === null ? (
+                    <AlertCircle size={20} style={{ color: '#9CA3AF' }} />
+                  ) : item.status ? (
                     <CheckCircle size={20} style={{ color: '#10B981' }} />
                   ) : (
                     <AlertCircle size={20} style={{ color: '#EF4444' }} />
@@ -245,8 +272,11 @@ export function ReportExport() {
                   <div className="text-xs text-[#6B7280] mt-0.5">{item.check}</div>
                 </div>
                 <div className="flex-shrink-0 text-right">
-                  <span className="text-xs font-medium px-2 py-1 rounded-full" style={{ backgroundColor: item.status ? '#ECFDF5' : '#FEF2F2', color: item.status ? '#10B981' : '#EF4444' }}>
-                    {item.status ? '✓ Pass' : '✗ Fail'}
+                  <span className="text-xs font-medium px-2 py-1 rounded-full" style={{
+                    backgroundColor: item.status === null ? '#F3F4F6' : item.status ? '#ECFDF5' : '#FEF2F2',
+                    color: item.status === null ? '#6B7280' : item.status ? '#10B981' : '#EF4444',
+                  }}>
+                    {item.status === null ? 'Not reported' : item.status ? '✓ Pass' : '✗ Fail'}
                   </span>
                   <div className="text-xs text-[#9CA3AF] mt-1 font-mono">{item.detail}</div>
                 </div>
@@ -291,5 +321,34 @@ function LogoIcon() {
       <path d="M6 15.5 Q8.5 13 11 15.5" stroke="white" strokeWidth="1.5" fill="none" strokeLinecap="round" />
       <path d="M17 15.5 Q19.5 13 22 15.5" stroke="white" strokeWidth="1.5" fill="none" strokeLinecap="round" />
     </svg>
+  );
+}
+
+function RecoveryEmptyState() {
+  return (
+    <div className="min-h-screen" style={{ background: '#F9FAFB' }}>
+      <Navbar variant="app" />
+      <div className="mx-auto flex min-h-screen max-w-3xl items-center px-6 py-24">
+        <div className="w-full rounded-2xl border border-[#E5E7EB] bg-white p-8">
+          <div className="text-xs font-semibold uppercase tracking-wide text-[#6B7280]" style={{ fontFamily: 'Inter, sans-serif' }}>
+            Recoverable state
+          </div>
+          <h1 className="mt-2 text-2xl font-bold text-[#111827]" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+            Report export is not loaded
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-[#374151]" style={{ fontFamily: 'Inter, sans-serif' }}>
+            Open a saved analysis or upload a CSV to recover the report flow. The summary can be restored from session storage, and a demo dataset will bring back PDF export when the source file is available again.
+          </p>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link to="/app/upload" className="inline-flex items-center rounded-lg bg-[#2563EB] px-4 py-2 text-sm font-medium text-white hover:bg-[#1D4ED8]" style={{ fontFamily: 'Inter, sans-serif' }}>
+              Go to upload
+            </Link>
+            <Link to="/app/analysis" className="inline-flex items-center rounded-lg border border-[#E5E7EB] px-4 py-2 text-sm font-medium text-[#374151] hover:border-[#3B82F6] hover:text-[#3B82F6]" style={{ fontFamily: 'Inter, sans-serif' }}>
+              Dashboard
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

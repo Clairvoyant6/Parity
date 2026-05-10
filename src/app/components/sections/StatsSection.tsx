@@ -55,8 +55,8 @@ function StatCard({ stat, triggered }: { stat: typeof stats[0]; triggered: boole
 
   return (
     <div
-      className="bg-white rounded-2xl p-8 border reveal-on-scroll revealed flex flex-col"
-      style={{ borderColor: stat.border }}
+      className="bg-white rounded-2xl p-8 border reveal-on-scroll revealed flex flex-col shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-xl"
+      style={{ borderColor: stat.border, boxShadow: `0 24px 60px ${stat.color}10` }}
     >
       <div
         className="text-5xl mb-4 tracking-tight"
@@ -94,7 +94,7 @@ export function StatsSection() {
   }, []);
 
   return (
-    <section className="py-24" style={{ background: '#F9FAFB' }} id="domains">
+    <section className="py-28" style={{ background: 'linear-gradient(180deg, #F9FAFB 0%, #FFFFFF 100%)' }} id="domains">
       <div className="max-w-7xl mx-auto px-6">
         <div className="text-center mb-16" ref={ref}>
           <SectionLabel text="The Problem" className="justify-center mb-4" />
@@ -102,15 +102,15 @@ export function StatsSection() {
             className="tracking-tight"
             style={{ fontFamily: 'DM Sans, sans-serif', fontWeight: 700, fontSize: 'clamp(2rem, 4vw, 3rem)', color: '#111827' }}
           >
-            AI bias is not a bug.
+            AI bias is not abstract.
             <br />
-            <span style={{ color: '#2563EB' }}>It's the system.</span>
+            <span style={{ color: '#2563EB' }}>It is already deciding.</span>
           </h2>
           <p
             className="mt-4 max-w-2xl mx-auto"
             style={{ fontFamily: 'Inter, sans-serif', color: '#6B7280', fontSize: '1.0625rem' }}
           >
-            Across every domain where AI makes consequential decisions, bias follows the same pattern — and the same people pay the price.
+            Across high-stakes systems, small statistical gaps become real outcomes. Parity turns that hidden harm into measurable evidence.
           </p>
         </div>
 

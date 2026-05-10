@@ -1,5 +1,4 @@
 import { Link } from 'react-router';
-import { Github, Twitter, Linkedin, ExternalLink } from 'lucide-react';
 
 export function Footer() {
   return (
@@ -29,12 +28,18 @@ export function Footer() {
                 { name: 'NYC Local Law 144', href: 'https://www.nyc.gov/site/dca/about/automated-employment-decision-tools.page' },
                 { name: 'COMPAS Dataset', href: 'https://www.propublica.org/datastore/dataset/compas-recidivism-risk-score-data-and-analysis' },
                 { name: 'Fairness Metrics Explained', href: 'https://aif360.readthedocs.io/en/latest/modules/metrics.html' },
-                { name: 'Blog', href: '#' },
+                { name: 'Start an Audit', to: '/app/onboard' },
               ].map((item) => (
                 <li key={item.name}>
-                  <a href={item.href} target="_blank" rel="noopener noreferrer" className="text-sm text-[#6B7280] hover:text-white transition-colors" style={{ fontFamily: 'Inter, sans-serif' }}>
-                    {item.name}
-                  </a>
+                  {item.to ? (
+                    <Link to={item.to} className="text-sm text-[#6B7280] hover:text-white transition-colors" style={{ fontFamily: 'Inter, sans-serif' }}>
+                      {item.name}
+                    </Link>
+                  ) : (
+                    <a href={item.href} target="_blank" rel="noopener noreferrer" className="text-sm text-[#6B7280] hover:text-white transition-colors" style={{ fontFamily: 'Inter, sans-serif' }}>
+                      {item.name}
+                    </a>
+                  )}
                 </li>
               ))}
             </ul>
